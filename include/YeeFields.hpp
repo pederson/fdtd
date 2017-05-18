@@ -128,7 +128,7 @@ struct YeeFieldsTM: public YeeFields<TM, FieldType, 1, 2, ContainerT>{
 
 template<typename FieldType, template <class,std::size_t> class ContainerT>
 struct YeeFieldsTEM: public YeeFields<TEM, FieldType, 1, 1, ContainerT>{
-	typedef YeeFields<ThreeD, FieldType, 1, 1, ContainerT> BaseT;
+	typedef YeeFields<TEM, FieldType, 1, 1, ContainerT> BaseT;
 	
 	FieldType & Ez() {return std::get<0>(BaseT::E);};
 

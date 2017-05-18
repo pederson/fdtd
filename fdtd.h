@@ -6,5 +6,6 @@
 #include "include/YeeUpdates.hpp"
 #include "include/FDTDConstants.hpp"
 #include "include/DispersiveMaterials.hpp"
+#include "include/PML.hpp"
 
 #endif

@@ -3,17 +3,38 @@
 
 #include "FDTDConstants.hpp"
 
-// #include <limits>
-// #include <cmath>
-// #include <array>
-// #include <memory>
-// #include <iostream>
-
 namespace fdtd{
 
 
+
+struct VacuumPolarization{
+	constexpr double Px() const {return 0;};
+	constexpr double Py() const {return 0;};
+	constexpr double Pz() const {return 0;};
+};
+
+
+struct VacuumMagnetization{
+	constexpr double Mx() const {return 0;};
+	constexpr double My() const {return 0;};
+	constexpr double Mz() const {return 0;};
+};
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+
 template <class FieldType>
-inline ConstantUpdate(FieldType & Out, const FieldType & In, double c){Out=In/c;}
+inline void ConstantUpdate(FieldType & Out, const FieldType & In, double c){Out=In/c;}
 
 
 template <class Mode>
@@ -192,72 +213,72 @@ struct ConstantUpdateH<TEM>{
 
 
 
-struct Vacuum{};
-struct PEC{};
-struct PMC{};
+// struct Vacuum{};
+// struct PEC{};
+// struct PMC{};
 
-struct OwnedConstant{
-	double val;
-	constexpr OwnedConstant(): val(1.0) {};
-	constexpr OwnedConstant(double c): val(c) {};
-	constexpr double getConstant() const {return val;};
-	void setConstant(double c) {val=c;};
-};
+// struct OwnedConstant{
+// 	double val;
+// 	constexpr OwnedConstant(): val(1.0) {};
+// 	constexpr OwnedConstant(double c): val(c) {};
+// 	constexpr double getConstant() const {return val;};
+// 	void setConstant(double c) {val=c;};
+// };
 
-template <class ParameterPolicy = OwnedConstant>
-struct ConstantUpdate : public ParameterPolicy{
-	template <typename FieldType>
-	void update(FieldType & Out, const FieldType & In, double dt){
-		Out = In/getConstant();
-	};
-};
+// template <class ParameterPolicy = OwnedConstant>
+// struct ConstantUpdate : public ParameterPolicy{
+// 	template <typename FieldType>
+// 	void update(FieldType & Out, const FieldType & In, double dt){
+// 		Out = In/getConstant();
+// 	};
+// };
 
-// template <typename FieldType,
-// 		  class ParameterPolicy,
-// 		  template <class> class UpdatePolicy>
-// struct ElementalDispersion : public UpdatePolicy<FieldType>, public ParameterPolicy{
+// // template <typename FieldType,
+// // 		  class ParameterPolicy,
+// // 		  template <class> class UpdatePolicy>
+// // struct ElementalDispersion : public UpdatePolicy<FieldType>, public ParameterPolicy{
 
+// // };
+
+
+
+// struct NullUpdate{
+// 	template <typename FieldType>
+// 	void update(FieldType & Out, const FieldType & In, double dt){};
 // };
 
 
 
-struct NullUpdate{
-	template <typename FieldType>
-	void update(FieldType & Out, const FieldType & In, double dt){};
-};
+// template <class Pxx, class Pxy, class Pxz,
+// 				  , class Pyy, class Pyz,
+// 				  			 , class Pzz>
+// struct GeneralLinearDispersion : public Pxx, public Pxy, public Pxz,
+// 											   public Pyy, public Pyz,
+// 											 			   public Pzz
+// {
+
+// };
 
 
-
-template <class Pxx, class Pxy, class Pxz,
-				  , class Pyy, class Pyz,
-				  			 , class Pzz>
-struct GeneralLinearDispersion : public Pxx, public Pxy, public Pxz,
-											   public Pyy, public Pyz,
-											 			   public Pzz
-{
-
-};
+// template <class Pxx, class Pyy, class Pzz> 
+// struct GeneralDiagonalDispersion GeneralLinearDispersion<Pxx, void, void,
+// 														  Pyy		, void,
+// 																	, Pzz>;
 
 
-template <class Pxx, class Pyy, class Pzz> 
-struct GeneralDiagonalDispersion GeneralLinearDispersion<Pxx, void, void,
-														  Pyy		, void,
-																	, Pzz>;
+// template <class Pxx> 
+// struct GeneralIsotropicDispersion GeneralDiagonalDispersion<Pxx, Pxx, Pxx>;
 
 
-template <class Pxx> 
-struct GeneralIsotropicDispersion GeneralDiagonalDispersion<Pxx, Pxx, Pxx>;
+// template <class ElementalDispersion>
+// struct IsotropicDipsersion{
+// 	ElementalDispersion			mDisp;
 
+// 	template <typename FieldType>
+// 	void update(double dt, double dx, std::pair<FieldType, FieldType>... fields){
 
-template <class ElementalDispersion>
-struct IsotropicDipsersion{
-	ElementalDispersion			mDisp;
-
-	template <typename FieldType>
-	void update(double dt, double dx, std::pair<FieldType, FieldType>... fields){
-
-	};
-};
+// 	};
+// };
 
 
 // template <class Mode>

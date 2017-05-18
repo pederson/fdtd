@@ -1,19 +1,54 @@
 #ifndef _YEECELL_H
 #define _YEECELL_H
 
-// #include "FDTDConstants.hpp"
-// #include "YeeFields.hpp"
-// #include "YeeUpdates.hpp"
-
-// #include <limits>
-// #include <cmath>
 #include <array>
-// #include <memory>
-// #include <iostream>
 
 namespace fdtd{
 
 
+struct NoSource{
+
+};
+
+
+// PML model has dispersion X_v = K_v*E + S_v/(jW + A_v)
+// and convolutional terms I_{w,v} where w and v = {x,y,z}
+struct NoPML{
+
+	// PML parameters
+	constexpr double pmlKx() const {return 1.0;};
+	constexpr double pmlKy() const {return 1.0;};
+	constexpr double pmlKz() const {return 1.0;};
+
+	constexpr double pmlSx() const {return 0.0;};
+	constexpr double pmlSy() const {return 0.0;};
+	constexpr double pmlSz() const {return 0.0;};
+
+	constexpr double pmlAx() const {return 0.0;};
+	constexpr double pmlAy() const {return 0.0;};
+	constexpr double pmlAz() const {return 0.0;};
+
+	// derived PML parameters
+	constexpr double pmlBx() const {return 1.0;};
+	constexpr double pmlBy() const {return 1.0;};
+	constexpr double pmlBz() const {return 1.0;};
+
+	constexpr double pmlCx() const {return 0.0;};
+	constexpr double pmlCy() const {return 0.0;};
+	constexpr double pmlCz() const {return 0.0;};
+
+
+	// convolution terms
+	constexpr double pmlIxx() const {return 0.0;};
+	constexpr double pmlIxy() const {return 0.0;};
+	constexpr double pmlIxz() const {return 0.0;};
+	constexpr double pmlIyx() const {return 0.0;};
+	constexpr double pmlIyy() const {return 0.0;};
+	constexpr double pmlIyz() const {return 0.0;};
+	constexpr double pmlIzx() const {return 0.0;};
+	constexpr double pmlIzy() const {return 0.0;};
+	constexpr double pmlIzz() const {return 0.0;};
+};
 
 
 template<class EMFields, std::size_t dim>
@@ -22,16 +57,16 @@ public:
 	static_assert(dim <= 3, "Neighbors can only have up to 3 dimensions");
 
 	// run-time functions
-	EMFields & getNeighborMax(std::size_t d){return *mNeighbHi[d];};
-	EMFields & getNeighborMin(std::size_t d){return *mNeighbLo[d];};
+	const EMFields & getNeighborMax(std::size_t d) const {return *(mNeighbHi[d]);};
+	const EMFields & getNeighborMin(std::size_t d) const {return *(mNeighbLo[d]);};
 	void setNeighborMax(std::size_t d, const EMFields & f){mNeighbHi[d]=&f;};
 	void setNeighborMin(std::size_t d, const EMFields & f){mNeighbLo[d]=&f;};
 
 	// compile-time functions
 	template<std::size_t d>
-	const EMFields & getNeighborMax(){return *std::get<d>(mNeighbHi);};
+	const EMFields & getNeighborMax() const {return *std::get<d>(mNeighbHi);};
 	template<std::size_t d>
-	const EMFields & getNeighborMin(){return *std::get<d>(mNeighbLo);};
+	const EMFields & getNeighborMin() const {return *std::get<d>(mNeighbLo);};
 	template<std::size_t d>
 	void setNeighborMax(const EMFields & f){return std::get<d>(mNeighbHi) = &f;};
 	template<std::size_t d>
@@ -96,11 +131,13 @@ template <class FieldPolicy,
 		  class PolarizationPolicy,
 		  class MagnetizationPolicy,
 		  template <class> class NeighborPolicy,
-		  class SourcePolicy = void>
+		  class PMLPolicy = NoPML,
+		  class SourcePolicy = NoSource>
 class YeeCell : public FieldPolicy,
 				public PolarizationPolicy,
 				public MagnetizationPolicy,
 				public NeighborPolicy<FieldPolicy>,
+				public PMLPolicy,
 				public SourcePolicy 
 {
 public:
@@ -108,6 +145,7 @@ public:
 	typedef PolarizationPolicy 				PolarizationT;
 	typedef MagnetizationPolicy 			MagnetizationT;
 	typedef NeighborPolicy<FieldPolicy>		NeighborT;
+	typedef PMLPolicy						PMLT;
 	typedef SourcePolicy 					SourceT;
 
 };

@@ -7,19 +7,26 @@ namespace fdtd{
 
 
 
+template<typename Mode> class StoredPMLx;
+template<typename Mode> class StoredPMLy;
+template<typename Mode> class StoredPMLz;	
+class NoPMLx;
+class NoPMLy;
+class NoPMLz;
 
-template <class PMLxPolicy,
-		  class PMLyPolicy,
-		  class PMLzPolicy>
-class PML : public PMLxPolicy, public PMLyPolicy, public PMLzPolicy
+template <typename Mode,
+		  bool X, bool Y, bool Z,
+		  class PMLTypeX = StoredPMLx<Mode>,
+		  class PMLTypeY = StoredPMLy<Mode>,
+		  class PMLTypeZ = StoredPMLz<Mode>
+		  >
+class PML : public std::conditional<X, PMLTypeX, NoPMLx>::type
+		  , public std::conditional<Y, PMLTypeY, NoPMLy>::type
+		  , public std::conditional<Z, PMLTypeZ, NoPMLz>::type
 {
 public:
-	typedef PMLxPolicy PMLxT;
-	typedef PMLyPolicy PMLyT;
-	typedef PMLzPolicy PMLzT;
+
 };
-
-
 
 
 
@@ -38,7 +45,7 @@ public:
 
 
 template <class Mode>
-struct UpdatePML{
+struct UpdatePMLD{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	
 };
@@ -46,15 +53,15 @@ struct UpdatePML{
 
 // specialization for 3D
 template<>
-struct UpdatePML<TEM>{
+struct UpdatePMLD<TEM>{
 	double dt, dx;
 
-	UpdatePML<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLD<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.pmlIxy() = f.pmlBx()*f.pmlIxy() + f.pmlCx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
-		f.Dz() += f.pmlIxy();
+		f.pmlEIxy() = f.pmlEBx()*f.pmlEIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
+		f.Dz() += f.pmlEIxy();
 	};
 };
 
@@ -77,23 +84,47 @@ struct UpdatePML<TEM>{
 
 struct NoPMLx{
 
-	// PML parameters
-	constexpr double pmlKx() const {return 1.0;};
 
-	constexpr double pmlSx() const {return 0.0;};
 
-	constexpr double pmlAx() const {return 0.0;};
+	// Electric PML parameters
+	constexpr double pmlEKx() const {return 1.0;};
+
+	constexpr double pmlESx() const {return 0.0;};
+
+	constexpr double pmlEAx() const {return 0.0;};
 
 	// derived PML parameters
-	constexpr double pmlBx() const {return 1.0;};
+	constexpr double pmlEBx() const {return 1.0;};
 
-	constexpr double pmlCx() const {return 0.0;};
+	constexpr double pmlECx() const {return 0.0;};
 
 
 	// convolution terms
-	constexpr double pmlIxx() const {return 0.0;};
-	constexpr double pmlIxy() const {return 0.0;};
-	constexpr double pmlIxz() const {return 0.0;};
+	constexpr double pmlEIxx() const {return 0.0;};
+	constexpr double pmlEIxy() const {return 0.0;};
+	constexpr double pmlEIxz() const {return 0.0;};
+
+
+
+
+
+	// Magnetic PML parameters
+	constexpr double pmlHKx() const {return 1.0;};
+
+	constexpr double pmlHSx() const {return 0.0;};
+
+	constexpr double pmlHAx() const {return 0.0;};
+
+	// derived PML parameters
+	constexpr double pmlHBx() const {return 1.0;};
+
+	constexpr double pmlHCx() const {return 0.0;};
+
+
+	// convolution terms
+	constexpr double pmlHIxx() const {return 0.0;};
+	constexpr double pmlHIxy() const {return 0.0;};
+	constexpr double pmlHIxz() const {return 0.0;};
 };
 
 
@@ -102,22 +133,47 @@ struct NoPMLx{
 struct NoPMLy{
 
 	// PML parameters
-	constexpr double pmlKy() const {return 1.0;};
+	constexpr double pmlEKy() const {return 1.0;};
 
-	constexpr double pmlSy() const {return 0.0;};
+	constexpr double pmlESy() const {return 0.0;};
 
-	constexpr double pmlAy() const {return 0.0;};
+	constexpr double pmlEAy() const {return 0.0;};
 
 	// derived PML parameters
-	constexpr double pmlBy() const {return 1.0;};
+	constexpr double pmlEBy() const {return 1.0;};
 
-	constexpr double pmlCy() const {return 0.0;};
+	constexpr double pmlECy() const {return 0.0;};
 
 
 	// convolution terms
-	constexpr double pmlIyx() const {return 0.0;};
-	constexpr double pmlIyy() const {return 0.0;};
-	constexpr double pmlIyz() const {return 0.0;};
+	constexpr double pmlEIyx() const {return 0.0;};
+	constexpr double pmlEIyy() const {return 0.0;};
+	constexpr double pmlEIyz() const {return 0.0;};
+
+
+
+
+
+
+
+
+	// Magnetic PML parameters
+	constexpr double pmlHKy() const {return 1.0;};
+
+	constexpr double pmlHSy() const {return 0.0;};
+
+	constexpr double pmlHAy() const {return 0.0;};
+
+	// derived PML parameters
+	constexpr double pmlHBy() const {return 1.0;};
+
+	constexpr double pmlHCy() const {return 0.0;};
+
+
+	// convolution terms
+	constexpr double pmlHIyx() const {return 0.0;};
+	constexpr double pmlHIyy() const {return 0.0;};
+	constexpr double pmlHIyz() const {return 0.0;};
 };
 
 
@@ -126,22 +182,45 @@ struct NoPMLy{
 struct NoPMLz{
 
 	// PML parameters
-	constexpr double pmlKz() const {return 1.0;};
+	constexpr double pmlEKz() const {return 1.0;};
 
-	constexpr double pmlSz() const {return 0.0;};
+	constexpr double pmlESz() const {return 0.0;};
 
-	constexpr double pmlAz() const {return 0.0;};
+	constexpr double pmlEAz() const {return 0.0;};
 
 	// derived PML parameters
-	constexpr double pmlBz() const {return 1.0;};
+	constexpr double pmlEBz() const {return 1.0;};
 
-	constexpr double pmlCz() const {return 0.0;};
+	constexpr double pmlECz() const {return 0.0;};
 
 
 	// convolution terms
-	constexpr double pmlIzx() const {return 0.0;};
-	constexpr double pmlIzy() const {return 0.0;};
-	constexpr double pmlIzz() const {return 0.0;};
+	constexpr double pmlEIzx() const {return 0.0;};
+	constexpr double pmlEIzy() const {return 0.0;};
+	constexpr double pmlEIzz() const {return 0.0;};
+
+
+
+
+
+
+	// PML parameters
+	constexpr double pmlHKz() const {return 1.0;};
+
+	constexpr double pmlHSz() const {return 0.0;};
+
+	constexpr double pmlHAz() const {return 0.0;};
+
+	// derived PML parameters
+	constexpr double pmlHBz() const {return 1.0;};
+
+	constexpr double pmlHCz() const {return 0.0;};
+
+
+	// convolution terms
+	constexpr double pmlHIzx() const {return 0.0;};
+	constexpr double pmlHIzy() const {return 0.0;};
+	constexpr double pmlHIzz() const {return 0.0;};
 };
 
 
@@ -151,594 +230,479 @@ struct NoPMLz{
 
 
 
+
+
+
+
 //************************************************************
 //************************************************************
 //************************************************************
 //************************************************************
 //************************************************************
 //************************************************************
+
+
+
+
+template <typename Mode>
+struct PMLIx{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+};
+
+template <>
+struct PMLIx<ThreeD>{
+	// E convolution terms
+	double EIxx;
+	double EIxy;
+	double EIxz;
+
+	// H convolution terms
+	double HIxx;
+	double HIxy;
+	double HIxz;
+
+	// accessors
+	double & pmlEIxx() {return EIxx;};
+	double & pmlEIxy() {return EIxy;};
+	double & pmlEIxz() {return EIxz;};
+	double & pmlHIxx() {return HIxx;};
+	double & pmlHIxy() {return HIxy;};
+	double & pmlHIxz() {return HIxz;};
+};
+
+template <>
+struct PMLIx<TE>{
+	// E convolution terms
+	double EIxz;
+
+	// H convolution terms
+	double HIxx;
+	double HIxy;
+
+	// accessors
+	double & pmlEIxz() {return EIxz;};
+	double & pmlHIxx() {return HIxx;};
+	double & pmlHIxy() {return HIxy;};
+};
+
+
+template <>
+struct PMLIx<TM>{
+	// E convolution terms
+	double EIxx;
+	double EIxy;
+
+	// H convolution terms
+	double HIxz;
+
+	// accessors
+	double & pmlEIxx() {return EIxx;};
+	double & pmlEIxy() {return EIxy;};
+	double & pmlHIxz() {return HIxz;};
+};
+
+
+template <>
+struct PMLIx<TEM>{
+	// E convolution terms
+	double EIxy;
+
+	// H convolution terms
+	double HIxz;
+
+	// accessors
+	double & pmlEIxy() {return EIxy;};
+	double & pmlHIxz() {return HIxz;};
+};
+
+
+
+
+// x PML Stored class
+template <typename Mode>
+struct StoredPMLx : public PMLIx<Mode>{
+
+	// PML parameters
+	double EKx;
+	double ESx;
+	double EAx;
+
+	// derived PML parameters
+	double EBx;
+	double ECx;
+
+
+	// PML parameters
+	double HKx;
+	double HSx;
+	double HAx;
+
+	// derived PML parameters
+	double HBx;
+	double HCx;
+
+
+	StoredPMLx()
+	: EKx(1.0), ESx(0.0), EAx(0.0)
+	, EBx(1.0), ECx(0.0)
+	, HKx(1.0), HSx(0.0), HAx(0.0)
+	, HBx(1.0), HCx(0.0) {};
+
+	// StoredPMLx<ThreeD>(double K, double S, double A, double dt)
+	// : EKx(K), ESx(S), EAx(A)
+	// , EBx(1.0), ECx(0.0)
+	// , EIxx(0.0), EIxy(0.0), EIxz(0.0) {setPMLParametersE(EKx, ESx, EAx, dt);
+	// 								   setPMLParametersH(HKx, HSx, HAx, dt);};
+
+
+	void setPMLParametersE(double K, double S, double A, double dt){
+		EKx = K; ESx = S; EAx = A;
+		EBx = exp(-dt/eps0*(ESx/EKx + EAx));
+		ECx = ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1);
+	}
+
+	void setPMLParametersH(double K, double S, double A, double dt){
+		HKx = K; HSx = S; HAx = A;
+		HBx = exp(-dt/eps0*(HSx/HKx + HAx));
+		HCx = HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1);
+	}
+
+
+	// PML parameters
+	constexpr double & pmlEKx() {return EKx;};
+	constexpr double & pmlESx() {return ESx;};
+	constexpr double & pmlEAx() {return EAx;};
+
+	constexpr double & pmlHKx() {return HKx;};
+	constexpr double & pmlHSx() {return HSx;};
+	constexpr double & pmlHAx() {return HAx;};
+
+	// derived PML parameters
+	constexpr double & pmlEBx() {return EBx;};
+	constexpr double & pmlECx() {return ECx;};
+
+	constexpr double & pmlHBx() {return HBx;};
+	constexpr double & pmlHCx() {return HCx;};
+};
+
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+template <typename Mode>
+struct PMLIy{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+};
+
+template <>
+struct PMLIy<ThreeD>{
+	// E convolution terms
+	double EIyx;
+	double EIyy;
+	double EIyz;
+
+	// H convolution terms
+	double HIyx;
+	double HIyy;
+	double HIyz;
+
+	// accessors
+	double & pmlEIyx() {return EIyx;};
+	double & pmlEIyy() {return EIyy;};
+	double & pmlEIyz() {return EIyz;};
+	double & pmlHIyx() {return HIyx;};
+	double & pmlHIyy() {return HIyy;};
+	double & pmlHIyz() {return HIyz;};
+};
+
+template <>
+struct PMLIy<TE>{
+	// E convolution terms
+	double EIyz;
+
+	// H convolution terms
+	double HIyx;
+	double HIyy;
+
+	// accessors
+	double & pmlEIyz() {return EIyz;};
+	double & pmlHIyx() {return HIyx;};
+	double & pmlHIyy() {return HIyy;};
+};
+
+
+template <>
+struct PMLIy<TM>{
+	// E convolution terms
+	double EIyx;
+	double EIyy;
+
+	// H convolution terms
+	double HIyz;
+
+	// accessors
+	double & pmlEIyx() {return EIyx;};
+	double & pmlEIyy() {return EIyy;};
+	double & pmlHIyz() {return HIyz;};
+};
+
+
+template <>
+struct PMLIy<TEM>{
+	// E convolution terms
+	double EIyy;
+
+	// H convolution terms
+	double HIyz;
+
+	// accessors
+	double & pmlEIyy() {return EIyy;};
+	double & pmlHIyz() {return HIyz;};
+};
+
+
+
+
+// y PML Stored class
+template <typename Mode>
+struct StoredPMLy : public PMLIy<Mode>{
+
+	// PML parameters
+	double EKy;
+	double ESy;
+	double EAy;
+
+	// derived PML parameters
+	double EBy;
+	double ECy;
+
+
+	// PML parameters
+	double HKy;
+	double HSy;
+	double HAy;
+
+	// derived PML parameters
+	double HBy;
+	double HCy;
+
+
+	StoredPMLy()
+	: EKy(1.0), ESy(0.0), EAy(0.0)
+	, EBy(1.0), ECy(0.0)
+	, HKy(1.0), HSy(0.0), HAy(0.0)
+	, HBy(1.0), HCy(0.0) {};
+
+	// StoredPMLy<ThreeD>(double K, double S, double A, double dt)
+	// : EKy(K), ESy(S), EAy(A)
+	// , EBy(1.0), ECy(0.0)
+	// , EIyy(0.0), EIyy(0.0), EIyz(0.0) {setPMLParametersE(EKy, ESy, EAy, dt);
+	// 								   setPMLParametersH(HKy, HSy, HAy, dt);};
+
+
+	void setPMLParametersE(double K, double S, double A, double dt){
+		EKy = K; ESy = S; EAy = A;
+		EBy = eyp(-dt/eps0*(ESy/EKy + EAy));
+		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1);
+	}
+
+	void setPMLParametersH(double K, double S, double A, double dt){
+		HKy = K; HSy = S; HAy = A;
+		HBy = eyp(-dt/eps0*(HSy/HKy + HAy));
+		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1);
+	}
+
+
+	// PML parameters
+	constexpr double & pmlEKy() {return EKy;};
+	constexpr double & pmlESy() {return ESy;};
+	constexpr double & pmlEAy() {return EAy;};
+
+	constexpr double & pmlHKy() {return HKy;};
+	constexpr double & pmlHSy() {return HSy;};
+	constexpr double & pmlHAy() {return HAy;};
+
+	// derived PML parameters
+	constexpr double & pmlEBy() {return EBy;};
+	constexpr double & pmlECy() {return ECy;};
+
+	constexpr double & pmlHBy() {return HBy;};
+	constexpr double & pmlHCy() {return HCy;};
+};
+
+
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+
 
 
 
 
 
 template <typename Mode>
-struct StoredPMLx{
+struct PMLIz{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
 
-
-
-// specialization for 3D
 template <>
-struct StoredPMLx<ThreeD>{
+struct PMLIz<ThreeD>{
+	// E convolution terms
+	double EIzx;
+	double EIzy;
+	double EIzz;
 
-	// PML parameters
-	double Kx;
-	double Sx;
-	double Ax;
+	// H convolution terms
+	double HIzx;
+	double HIzy;
+	double HIzz;
 
-	// derived PML parameters
-	double Bx;
-	double Cx;
+	// accessors
+	double & pmlEIzx() {return EIzx;};
+	double & pmlEIzy() {return EIzy;};
+	double & pmlEIzz() {return EIzz;};
+	double & pmlHIzx() {return HIzx;};
+	double & pmlHIzy() {return HIzy;};
+	double & pmlHIzz() {return HIzz;};
+};
 
-	// convolution terms
-	double Ixx;
-	double Ixy;
-	double Ixz;
+template <>
+struct PMLIz<TE>{
+	// E convolution terms
+	double EIzz;
 
+	// H convolution terms
+	double HIzx;
+	double HIzy;
 
-	StoredPMLx<ThreeD>()
-	: Kx(1.0), Sx(0.0), Ax(0.0)
-	, Bx(1.0), Cx(0.0)
-	, Ixx(0.0), Ixy(0.0), Ixz(0.0) {};
-
-	StoredPMLx<ThreeD>(double K, double S, double A, double dt)
-	: Kx(K), Sx(S), Ax(A)
-	, Bx(1.0), Cx(0.0)
-	, Ixx(0.0), Ixy(0.0), Ixz(0.0) {setPMLParameters(Kx, Sx, Ax, dt);};
-
-
-	void setPMLParameters(double K, double S, double A, double dt){
-		Kx = K; Sx = S; Ax = A;
-		Bx = exp(-dt/eps0*(Sx/Kx + Ax));
-		Cx = Sx/Kx*1.0/(Sx+Kx*Ax)*(Bx-1);
-	}
-
-
-	// PML parameters
-	constexpr double & pmlKx() {return Kx;};
-
-	constexpr double & pmlSx() {return Sx;};
-
-	constexpr double & pmlAx() {return Ax;};
-
-	// derived PML parameters
-	constexpr double & pmlBx() {return Bx;};
-
-	constexpr double & pmlCx() {return Cx;};
+	// accessors
+	double & pmlEIzz() {return EIzz;};
+	double & pmlHIzx() {return HIzx;};
+	double & pmlHIzy() {return HIzy;};
+};
 
 
-	// convolution terms
-	double & pmlIxx() {return Ixx;};
-	double & pmlIxy() {return Ixy;};
-	double & pmlIxz() {return Ixz;};
+template <>
+struct PMLIz<TM>{
+	// E convolution terms
+	double EIzx;
+	double EIzy;
+
+	// H convolution terms
+	double HIzz;
+
+	// accessors
+	double & pmlEIzx() {return EIzx;};
+	double & pmlEIzy() {return EIzy;};
+	double & pmlHIzz() {return HIzz;};
+};
+
+
+template <>
+struct PMLIz<TEM>{
+	// E convolution terms
+	double EIzy;
+
+	// H convolution terms
+	double HIzz;
+
+	// accessors
+	double & pmlEIzy() {return EIzy;};
+	double & pmlHIzz() {return HIzz;};
 };
 
 
 
 
-
-// specialization for TE
-template <>
-struct StoredPMLx<TE>{
-
-	// PML parameters
-	double Kx;
-	double Sx;
-	double Ax;
-
-	// derived PML parameters
-	double Bx;
-	double Cx;
-
-	// convolution terms
-	double Ixz;
-
-
-	StoredPMLx<TE>()
-	: Kx(1.0), Sx(0.0), Ax(0.0)
-	, Bx(1.0), Cx(0.0)
-	, Ixz(0.0) {};
-
-	StoredPMLx<TE>(double K, double S, double A, double dt)
-	: Kx(K), Sx(S), Ax(A)
-	, Bx(1.0), Cx(0.0)
-	, Ixz(0.0) {setPMLParameters(Kx, Sx, Ax, dt);};
-
-
-	void setPMLParameters(double K, double S, double A, double dt){
-		Kx = K; Sx = S; Ax = A;
-		Bx = exp(-dt/eps0*(Sx/Kx + Ax));
-		Cx = Sx/Kx*1.0/(Sx+Kx*Ax)*(Bx-1);
-	}
-
-
-
-	// PML parameters
-	constexpr double & pmlKx() {return Kx;};
-
-	constexpr double & pmlSx() {return Sx;};
-
-	constexpr double & pmlAx() {return Ax;};
-
-	// derived PML parameters
-	constexpr double & pmlBx() {return Bx;};
-
-	constexpr double & pmlCx() {return Cx;};
-
-
-	// convolution terms
-	double & pmlIxz() {return Ixz;};
-};
-
-
-
-
-// specialization for TM
-template <>
-struct StoredPMLx<TM>{
-
-	// PML parameters
-	double Kx;
-	double Sx;
-	double Ax;
-
-	// derived PML parameters
-	double Bx;
-	double Cx;
-
-	// convolution terms
-	double Ixx;
-	double Ixy;
-
-	StoredPMLx<TM>()
-	: Kx(1.0), Sx(0.0), Ax(0.0)
-	, Bx(1.0), Cx(0.0)
-	, Ixx(0.0), Ixy(0.0) {};
-
-	StoredPMLx<TM>(double K, double S, double A, double dt)
-	: Kx(K), Sx(S), Ax(A)
-	, Bx(1.0), Cx(0.0)
-	, Ixx(0.0), Ixy(0.0) {setPMLParameters(Kx, Sx, Ax, dt);};
-
-
-	void setPMLParameters(double K, double S, double A, double dt){
-		Kx = K; Sx = S; Ax = A;
-		Bx = exp(-dt/eps0*(Sx/Kx + Ax));
-		Cx = Sx/Kx*1.0/(Sx+Kx*Ax)*(Bx-1);
-	}
-
-
-	// PML parameters
-	constexpr double & pmlKx() {return Kx;};
-
-	constexpr double & pmlSx() {return Sx;};
-
-	constexpr double & pmlAx() {return Ax;};
-
-	// derived PML parameters
-	constexpr double & pmlBx() {return Bx;};
-
-	constexpr double & pmlCx() {return Cx;};
-
-
-	// convolution terms
-	double & pmlIxx() {return Ixx;};
-	double & pmlIxy() {return Ixy;};
-};
-
-
-
-// specialization for TEM
-template <>
-struct StoredPMLx<TEM>{
-
-	// PML parameters
-	double Kx;
-	double Sx;
-	double Ax;
-
-	// derived PML parameters
-	double Bx;
-	double Cx;
-
-	// convolution terms
-	double Ixy;
-
-
-	StoredPMLx<TEM>()
-	: Kx(1.0), Sx(0.0), Ax(0.0)
-	, Bx(1.0), Cx(0.0)
-	, Ixy(0.0) {};
-
-	StoredPMLx<TEM>(double K, double S, double A, double dt)
-	: Kx(K), Sx(S), Ax(A)
-	, Bx(1.0), Cx(0.0)
-	, Ixy(0.0) {setPMLParameters(Kx, Sx, Ax, dt);};
-
-
-	void setPMLParameters(double K, double S, double A, double dt){
-		Kx = K; Sx = S; Ax = A;
-		Bx = exp(-dt/eps0*(Sx/Kx + Ax));
-		Cx = Sx/Kx*1.0/(Sx+Kx*Ax)*(Bx-1);
-	}
-
-
-	// PML parameters
-	constexpr double & pmlKx() {return Kx;};
-
-	constexpr double & pmlSx() {return Sx;};
-
-	constexpr double & pmlAx() {return Ax;};
-
-	// derived PML parameters
-	constexpr double & pmlBx() {return Bx;};
-
-	constexpr double & pmlCx() {return Cx;};
-
-
-	// convolution terms
-	double & pmlIxy() {return Ixy;};
-};
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-
+// y PML Stored class
 template <typename Mode>
-struct StoredPMLy{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+struct StoredPMLz : public PMLIz<Mode>{
+
+	// PML parameters
+	double EKz;
+	double ESz;
+	double EAz;
+
+	// derived PML parameters
+	double EBz;
+	double ECz;
+
+
+	// PML parameters
+	double HKz;
+	double HSz;
+	double HAz;
+
+	// derived PML parameters
+	double HBz;
+	double HCz;
+
+
+	StoredPMLz()
+	: EKz(1.0), ESz(0.0), EAz(0.0)
+	, EBz(1.0), ECz(0.0)
+	, HKz(1.0), HSz(0.0), HAz(0.0)
+	, HBz(1.0), HCz(0.0) {};
+
+	// StoredPMLz<ThreeD>(double K, double S, double A, double dt)
+	// : EKz(K), ESz(S), EAz(A)
+	// , EBz(1.0), ECz(0.0)
+	// , EIz(0.0), EIz(0.0), EIzz(0.0) {setPMLParametersE(EKz, ESz, EAz, dt);
+	// 								   setPMLParametersH(HKz, HSz, HAz, dt);};
+
+
+	void setPMLParametersE(double K, double S, double A, double dt){
+		EKz = K; ESz = S; EAz = A;
+		EBz = ezp(-dt/eps0*(ESz/EKz + EAz));
+		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1);
+	}
+
+	void setPMLParametersH(double K, double S, double A, double dt){
+		HKz = K; HSz = S; HAz = A;
+		HBz = ezp(-dt/eps0*(HSz/HKz + HAz));
+		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1);
+	}
+
+
+	// PML parameters
+	constexpr double & pmlEKz() {return EKz;};
+	constexpr double & pmlESz() {return ESz;};
+	constexpr double & pmlEAz() {return EAz;};
+
+	constexpr double & pmlHKz() {return HKz;};
+	constexpr double & pmlHSz() {return HSz;};
+	constexpr double & pmlHAz() {return HAz;};
+
+	// derived PML parameters
+	constexpr double & pmlEBz() {return EBz;};
+	constexpr double & pmlECz() {return ECz;};
+
+	constexpr double & pmlHBz() {return HBz;};
+	constexpr double & pmlHCz() {return HCz;};
 };
-
-
-// specialization for 3D
-template <>
-struct StoredPMLy<ThreeD>{
-
-	// PML parameters
-	double Ky;
-	double Sy;
-	double Ay;
-
-	// derived PML parameters
-	double By;
-	double Cy;
-
-	// convolution terms
-	double Iyx;
-	double Iyy;
-	double Iyz;
-
-
-
-	// PML parameters
-	constexpr double & pmlKy() {return Ky;};
-
-	constexpr double & pmlSy() {return Sy;};
-
-	constexpr double & pmlAy() {return Ay;};
-
-	// derived PML parameters
-	constexpr double & pmlBy() {return By;};
-
-	constexpr double & pmlCy() {return Cy;};
-
-
-	// convolution terms
-	double & pmlIyx() {return Iyx;};
-	double & pmlIyy() {return Iyy;};
-	double & pmlIyz() {return Iyz;};
-};
-
-
-
-
-
-// specialization for TE
-template <>
-struct StoredPMLy<TE>{
-
-	// PML parameters
-	double Ky;
-	double Sy;
-	double Ay;
-
-	// derived PML parameters
-	double By;
-	double Cy;
-
-	// convolution terms
-	double Iyz;
-
-
-
-	// PML parameters
-	constexpr double & pmlKy() {return Ky;};
-
-	constexpr double & pmlSy() {return Sy;};
-
-	constexpr double & pmlAy() {return Ay;};
-
-	// derived PML parameters
-	constexpr double & pmlBy() {return By;};
-
-	constexpr double & pmlCy() {return Cy;};
-
-
-	// convolution terms
-	double & pmlIyz() {return Iyz;};
-};
-
-
-
-
-// specialization for TM
-template <>
-struct StoredPMLy<TM>{
-
-	// PML parameters
-	double Ky;
-	double Sy;
-	double Ay;
-
-	// derived PML parameters
-	double By;
-	double Cy;
-
-	// convolution terms
-	double Iyx;
-	double Iyy;
-
-
-
-	// PML parameters
-	constexpr double & pmlKy() {return Ky;};
-
-	constexpr double & pmlSy() {return Sy;};
-
-	constexpr double & pmlAy() {return Ay;};
-
-	// derived PML parameters
-	constexpr double & pmlBy() {return By;};
-
-	constexpr double & pmlCy() {return Cy;};
-
-
-	// convolution terms
-	double & pmlIyx() {return Iyx;};
-	double & pmlIyy() {return Iyy;};
-};
-
-
-
-// specialization for TEM
-template <>
-struct StoredPMLy<TEM>{
-
-	// PML parameters
-	double Ky;
-	double Sy;
-	double Ay;
-
-	// derived PML parameters
-	double By;
-	double Cy;
-
-	// convolution terms
-	double Iyy;
-
-
-
-	// PML parameters
-	constexpr double & pmlKy() {return Ky;};
-
-	constexpr double & pmlSy() {return Sy;};
-
-	constexpr double & pmlAy() {return Ay;};
-
-	// derived PML parameters
-	constexpr double & pmlBy() {return By;};
-
-	constexpr double & pmlCy() {return Cy;};
-
-
-	// convolution terms
-	double & pmlIyy() {return Iyy;};
-};
-
-
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-template <typename Mode>
-struct StoredPMLz{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
-
-
-// specialization for 3D
-template <>
-struct StoredPMLz<ThreeD>{
-
-	// PML parameters
-	double Kz;
-	double Sz;
-	double Az;
-
-	// derived PML parameters
-	double Bz;
-	double Cz;
-
-	// convolution terms
-	double Izx;
-	double Izy;
-	double Izz;
-
-
-
-	// PML parameters
-	constexpr double & pmlKz() {return Kz;};
-
-	constexpr double & pmlSz() {return Sz;};
-
-	constexpr double & pmlAz() {return Az;};
-
-	// derived PML parameters
-	constexpr double & pmlBz() {return Bz;};
-
-	constexpr double & pmlCz() {return Cz;};
-
-
-	// convolution terms
-	double & pmlIzx() {return Izx;};
-	double & pmlIzy() {return Izy;};
-	double & pmlIzz() {return Izz;};
-};
-
-
-
-
-
-// specialization for TE
-template <>
-struct StoredPMLz<TE>{
-
-	// PML parameters
-	double Kz;
-	double Sz;
-	double Az;
-
-	// derived PML parameters
-	double Bz;
-	double Cz;
-
-	// convolution terms
-	double Izz;
-
-
-
-	// PML parameters
-	constexpr double & pmlKz() {return Kz;};
-
-	constexpr double & pmlSz() {return Sz;};
-
-	constexpr double & pmlAz() {return Az;};
-
-	// derived PML parameters
-	constexpr double & pmlBz() {return Bz;};
-
-	constexpr double & pmlCz() {return Cz;};
-
-
-	// convolution terms
-	double & pmlIzz() {return Izz;};
-};
-
-
-
-
-// specialization for TM
-template <>
-struct StoredPMLz<TM>{
-
-	// PML parameters
-	double Kz;
-	double Sz;
-	double Az;
-
-	// derived PML parameters
-	double Bz;
-	double Cz;
-
-	// convolution terms
-	double Izx;
-	double Izy;
-
-
-
-	// PML parameters
-	constexpr double & pmlKz() {return Kz;};
-
-	constexpr double & pmlSz() {return Sz;};
-
-	constexpr double & pmlAz() {return Az;};
-
-	// derived PML parameters
-	constexpr double & pmlBz() {return Bz;};
-
-	constexpr double & pmlCz() {return Cz;};
-
-
-	// convolution terms
-	double & pmlIzz() {return Izx;};
-	double & pmlIzy() {return Izy;};
-};
-
-
-
-// specialization for TEM
-template <>
-struct StoredPMLz<TEM>{
-
-	// PML parameters
-	double Kz;
-	double Sz;
-	double Az;
-
-	// derived PML parameters
-	double Bz;
-	double Cz;
-
-	// convolution terms
-	double Izy;
-
-
-
-	// PML parameters
-	constexpr double & pmlKz() {return Kz;};
-
-	constexpr double & pmlSz() {return Sz;};
-
-	constexpr double & pmlAz() {return Az;};
-
-	// derived PML parameters
-	constexpr double & pmlBz() {return Bz;};
-
-	constexpr double & pmlCz() {return Cz;};
-
-
-	// convolution terms
-	double & pmlIzy() {return Izy;};
-};
-
 
 
 
@@ -768,6 +732,12 @@ struct PMLParameterModel{
 	double A(double x) const {return pow(1.0-x, mMa)*maMax;};
 
 };
+
+
+
+
+
+
 
 
 }// end namespace fdtd

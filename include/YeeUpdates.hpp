@@ -44,7 +44,7 @@ struct NullFieldUpdate{
 
 
 // these updates require PML values available
-// i.e.  pmlKx(), pmlKy(), and pmlKz()
+// i.e.  pmlEKx(), pmlEKy(), and pmlEKz()
 template <class Mode>
 struct YeeUpdateD{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
@@ -61,9 +61,9 @@ struct YeeUpdateD<ThreeD>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dx() += dt/dx*(1.0/f.pmlKy()*(f.Hz() - f.getNeighborMin(1).Hz()) - 1.0/f.pmlKz()*(f.Hy() - f.getNeighborMin(2).Hy()));
-		f.Dy() += dt/dx*(1.0/f.pmlKz()*(f.Hx() - f.getNeighborMin(2).Hx()) - 1.0/f.pmlKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
-		f.Dz() += dt/dx*(1.0/f.pmlKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
+		f.Dx() += dt/dx*(1.0/f.pmlEKy()*(f.Hz() - f.getNeighborMin(1).Hz()) - 1.0/f.pmlEKz()*(f.Hy() - f.getNeighborMin(2).Hy()));
+		f.Dy() += dt/dx*(1.0/f.pmlEKz()*(f.Hx() - f.getNeighborMin(2).Hx()) - 1.0/f.pmlEKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
+		f.Dz() += dt/dx*(1.0/f.pmlEKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlEKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
 	};
 };
 
@@ -76,8 +76,8 @@ struct YeeUpdateD<TE>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dx() += dt/dx*( 1.0/f.pmlKy()*(f.Hz() - f.getNeighborMin(1).Hz()) - 1.0/f.pmlKz()*(f.Hy() - f.getNeighborMin(2).Hy()));
-		f.Dy() += dt/dx*(-1.0/f.pmlKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
+		f.Dx() += dt/dx*( 1.0/f.pmlEKy()*(f.Hz() - f.getNeighborMin(1).Hz()) - 1.0/f.pmlEKz()*(f.Hy() - f.getNeighborMin(2).Hy()));
+		f.Dy() += dt/dx*(-1.0/f.pmlEKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
 	};
 };
 
@@ -91,7 +91,7 @@ struct YeeUpdateD<TM>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dz() += dt/dx*(1.0/f.pmlKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
+		f.Dz() += dt/dx*(1.0/f.pmlEKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlEKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
 	};
 };
 
@@ -106,7 +106,7 @@ struct YeeUpdateD<TEM>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dz() += dt/dx*(1.0/f.pmlKx()*(f.Hy() - f.getNeighborMin(0).Hy()));
+		f.Dz() += dt/dx*(1.0/f.pmlEKx()*(f.Hy() - f.getNeighborMin(0).Hy()));
 	};
 };
 
@@ -211,10 +211,6 @@ struct PlainYeeUpdateD<TEM>{
 
 
 
-
-
-
-
 template <class Mode>
 struct YeeUpdateB{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
@@ -232,9 +228,9 @@ struct YeeUpdateB<ThreeD>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Bx() -= dt/dx*(f.getNeighborMax(1).Ez() - f.Ez() - f.getNeighborMax(2).Ey() + f.Ey());
-		f.By() -= dt/dx*(f.getNeighborMax(2).Ex() - f.Ex() - f.getNeighborMax(0).Ez() + f.Ez());
-		f.Bz() -= dt/dx*(f.getNeighborMax(0).Ey() - f.Ey() - f.getNeighborMax(1).Ex() + f.Ex());
+		f.Bx() -= dt/dx*(1.0/f.pmlHKy()*(f.getNeighborMax(1).Ez() - f.Ez()) - 1.0/f.pmlHKz()*(f.getNeighborMax(2).Ey() - f.Ey()));
+		f.By() -= dt/dx*(1.0/f.pmlHKz()*(f.getNeighborMax(2).Ex() - f.Ex()) - 1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
+		f.Bz() -= dt/dx*(1.0/f.pmlHKx()*(f.getNeighborMax(0).Ey() - f.Ey()) - 1.0/f.pmlHKy()*(f.getNeighborMax(1).Ex() - f.Ex()));
 	};
 };
 
@@ -248,7 +244,7 @@ struct YeeUpdateB<TE>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Bz() -= dt/dx*(f.getNeighborMax(0).Ey() - f.Ey() - f.getNeighborMax(1).Ex() + f.Ex());
+		f.Bz() -= dt/dx*(1.0/f.pmlHKx()*(f.getNeighborMax(0).Ey() - f.Ey()) - 1.0/f.pmlHKy()*(f.getNeighborMax(1).Ex() - f.Ex()));
 	};
 };
 
@@ -262,8 +258,8 @@ struct YeeUpdateB<TM>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Bx() -= dt/dx*( f.getNeighborMax(1).Ez() - f.Ez());
-		f.By() -= dt/dx*(- f.getNeighborMax(0).Ez() + f.Ez());
+		f.Bx() -= dt/dx*( 1.0/f.pmlHKy()*(f.getNeighborMax(1).Ez() - f.Ez()));
+		f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
 	};
 };
 
@@ -274,6 +270,100 @@ struct YeeUpdateB<TEM>{
 	double dt, dx;
 
 	YeeUpdateB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	// template<class YeeCell>
+	// void operator()(YeeCell & f){
+	// 	f.By() -= dt/dx*(- f.getNeighborMax(0).Ez() + f.Ez());
+	// };
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
+	};
+};
+
+
+
+
+
+
+
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+
+
+
+template <class Mode>
+struct PlainYeeUpdateB{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+	
+};
+
+
+
+// specialization for 3D
+template<>
+struct PlainYeeUpdateB<ThreeD>{
+	double dt, dx;
+
+	PlainYeeUpdateB<ThreeD>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Bx() -= dt/dx*(f.getNeighborMax(1).Ez() - f.Ez() - f.getNeighborMax(2).Ey() + f.Ey());
+		f.By() -= dt/dx*(f.getNeighborMax(2).Ex() - f.Ex() - f.getNeighborMax(0).Ez() + f.Ez());
+		f.Bz() -= dt/dx*(f.getNeighborMax(0).Ey() - f.Ey() - f.getNeighborMax(1).Ex() + f.Ex());
+	};
+};
+
+
+// specialization for TE
+template<>
+struct PlainYeeUpdateB<TE>{
+	double dt, dx;
+
+	PlainYeeUpdateB<TE>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Bz() -= dt/dx*(f.getNeighborMax(0).Ey() - f.Ey() - f.getNeighborMax(1).Ex() + f.Ex());
+	};
+};
+
+
+// specialization for TM
+template<>
+struct PlainYeeUpdateB<TM>{
+	double dt, dx;
+
+	PlainYeeUpdateB<TM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Bx() -= dt/dx*( f.getNeighborMax(1).Ez() - f.Ez());
+		f.By() -= dt/dx*(- f.getNeighborMax(0).Ez() + f.Ez());
+	};
+};
+
+
+// specialization for TEM
+template<>
+struct PlainYeeUpdateB<TEM>{
+	double dt, dx;
+
+	PlainYeeUpdateB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){

@@ -54,6 +54,7 @@ struct UpdatePML<TEM>{
 	template<class YeeCell>
 	void operator()(YeeCell & f){
 		f.pmlIxy() = f.pmlBx()*f.pmlIxy() + f.pmlCx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
+		f.Dz() += f.pmlIxy();
 	};
 };
 
@@ -736,6 +737,36 @@ struct StoredPMLz<TEM>{
 
 	// convolution terms
 	double & pmlIzy() {return Izy;};
+};
+
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+struct PMLParameterModel{
+	double mM, mMa;
+	double msMax, mkMax, maMax;
+
+	PMLParameterModel(double dx)
+	: mM(3), mMa(1), msMax(0.8*(mM+1)/(imp0*dx)), mkMax(5), maMax(0.05) {};
+
+	PMLParameterModel(double m, double ma, double sMax, double kMax, double aMax)
+	: mM(m), mMa(ma), msMax(sMax), mkMax(kMax), maMax(aMax) {};
+	
+	double K(double x) const {return 1.0+pow(x,mM)*(mkMax-1.0);};
+	double S(double x) const {return pow(x,mM)*msMax;};
+	double A(double x) const {return pow(1.0-x, mMa)*maMax;};
+
 };
 
 

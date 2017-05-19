@@ -27,14 +27,24 @@ int main(int argc, char * argv[]){
 		cells1[i].setNeighborMax(0, cells1[i+1]);
 	}
 
+	double dt=1;
+	double dx=c0;
+	PMLParameterModel p(c0);
+	int nPML = 10;
+	for (auto i=0; i<nPML; i++){
+		double x = double(i)/double(nPML);
+		cells1[i].setPMLParameters(p.K(x), p.S(x), p.A(x), dt);
+		cells1[49-i].setPMLParameters(p.K(x), p.S(x), p.A(x), dt);
+	}
+
 
 	for (auto t=0; t<100; t++){
-		for_each(++cells1.begin(), --cells1.end(), YeeUpdateD<TEM>(1,c0));
+		for_each(++cells1.begin(), --cells1.end(), YeeUpdateD<TEM>(dt,dx));
 		cells1[25].Dz() = sin(2*pi*0.05*t);
-		for_each(++cells1.begin(), --cells1.end(), UpdatePML<TEM>(1, c0));
+		for_each(++cells1.begin(), --cells1.end(), UpdatePML<TEM>(dt,dx));
 		for_each(++cells1.begin(), --cells1.end(), ConstantUpdateE<TEM>(1));
 	
-		for_each(++cells1.begin(), --cells1.end(), YeeUpdateB<TEM>(1,c0));
+		for_each(++cells1.begin(), --cells1.end(), YeeUpdateB<TEM>(dt,dx));
 		for_each(++cells1.begin(), --cells1.end(), ConstantUpdateH<TEM>(1));
 	
 		// std::cout << "Ez:" ;

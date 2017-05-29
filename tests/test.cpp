@@ -52,6 +52,7 @@ int main(int argc, char * argv[]){
 		std::for_each(++cells1.begin(), --cells1.end(), ConstantUpdateE<TEM>(1));
 	
 		std::for_each(++cells1.begin(), --cells1.end(), YeeUpdateB<TEM>(dt,dx));
+		std::for_each(++cells1.begin(), --cells1.end(), UpdatePMLB<TEM>(dt,dx));
 		std::for_each(++cells1.begin(), --cells1.end(), ConstantUpdateH<TEM>(1));
 	
 		// std::cout << "Ez:" ;

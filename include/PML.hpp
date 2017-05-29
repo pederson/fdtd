@@ -3,6 +3,8 @@
 
 #include <array>
 
+#include "FDTDConstants.hpp"
+
 namespace fdtd{
 
 
@@ -51,7 +53,7 @@ struct UpdatePMLD{
 };
 
 
-// specialization for 3D
+// specialization for TEM
 template<>
 struct UpdatePMLD<TEM>{
 	double dt, dx;
@@ -60,13 +62,45 @@ struct UpdatePMLD<TEM>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.pmlEIxy() = f.pmlEBx()*f.pmlEIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
-		f.Dz() += f.pmlEIxy();
+		f.pmlHIxy() = f.pmlHBy()*f.pmlHIxy() + f.pmlHCy()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
+		f.Dz() += f.pmlHIxy();
 	};
 };
 
 
 
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+template <class Mode>
+struct UpdatePMLB{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+	
+};
+
+
+// specialization for TEM
+template<>
+struct UpdatePMLB<TEM>{
+	double dt, dx;
+
+	UpdatePMLB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.pmlEIxz() = f.pmlEBx()*f.pmlEIxz() + f.pmlECx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());	
+		f.By() -= f.pmlEIxz();
+	};
+};
 
 
 
@@ -270,8 +304,27 @@ struct PMLIx<ThreeD>{
 	double & pmlHIxz() {return HIxz;};
 };
 
+
+
 template <>
 struct PMLIx<TE>{
+	// E convolution terms
+	double EIxx;
+	double EIxy;
+
+	// H convolution terms
+	double HIxz;
+
+	// accessors
+	double & pmlEIxx() {return EIxx;};
+	double & pmlEIxy() {return EIxy;};
+	double & pmlHIxz() {return HIxz;};
+};
+
+
+
+template <>
+struct PMLIx<TM>{
 	// E convolution terms
 	double EIxz;
 
@@ -287,32 +340,16 @@ struct PMLIx<TE>{
 
 
 template <>
-struct PMLIx<TM>{
-	// E convolution terms
-	double EIxx;
-	double EIxy;
-
-	// H convolution terms
-	double HIxz;
-
-	// accessors
-	double & pmlEIxx() {return EIxx;};
-	double & pmlEIxy() {return EIxy;};
-	double & pmlHIxz() {return HIxz;};
-};
-
-
-template <>
 struct PMLIx<TEM>{
 	// E convolution terms
-	double EIxy;
+	double EIxz;
 
 	// H convolution terms
-	double HIxz;
+	double HIxy;
 
 	// accessors
-	double & pmlEIxy() {return EIxy;};
-	double & pmlHIxz() {return HIxz;};
+	double & pmlEIxz() {return EIxz;};
+	double & pmlHIxy() {return HIxy;};
 };
 
 
@@ -358,13 +395,13 @@ struct StoredPMLx : public PMLIx<Mode>{
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKx = K; ESx = S; EAx = A;
 		EBx = exp(-dt/eps0*(ESx/EKx + EAx));
-		ECx = ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1);
+		ECx = ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1) / imp0;
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKx = K; HSx = S; HAx = A;
 		HBx = exp(-dt/eps0*(HSx/HKx + HAx));
-		HCx = HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1);
+		HCx = HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1) * imp0;
 	}
 
 
@@ -426,24 +463,10 @@ struct PMLIy<ThreeD>{
 	double & pmlHIyz() {return HIyz;};
 };
 
+
+
 template <>
 struct PMLIy<TE>{
-	// E convolution terms
-	double EIyz;
-
-	// H convolution terms
-	double HIyx;
-	double HIyy;
-
-	// accessors
-	double & pmlEIyz() {return EIyz;};
-	double & pmlHIyx() {return HIyx;};
-	double & pmlHIyy() {return HIyy;};
-};
-
-
-template <>
-struct PMLIy<TM>{
 	// E convolution terms
 	double EIyx;
 	double EIyy;
@@ -458,17 +481,37 @@ struct PMLIy<TM>{
 };
 
 
+
+
+template <>
+struct PMLIy<TM>{
+	// E convolution terms
+	double EIyz;
+
+	// H convolution terms
+	double HIyx;
+	double HIyy;
+
+	// accessors
+	double & pmlEIyz() {return EIyz;};
+	double & pmlHIyx() {return HIyx;};
+	double & pmlHIyy() {return HIyy;};
+};
+
+
+
+
 template <>
 struct PMLIy<TEM>{
 	// E convolution terms
-	double EIyy;
+	double EIyz;
 
 	// H convolution terms
-	double HIyz;
+	double HIyy;
 
 	// accessors
-	double & pmlEIyy() {return EIyy;};
-	double & pmlHIyz() {return HIyz;};
+	double & pmlEIyz() {return EIyz;};
+	double & pmlHIyy() {return HIyy;};
 };
 
 
@@ -513,14 +556,14 @@ struct StoredPMLy : public PMLIy<Mode>{
 
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKy = K; ESy = S; EAy = A;
-		EBy = eyp(-dt/eps0*(ESy/EKy + EAy));
-		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1);
+		EBy = exp(-dt/eps0*(ESy/EKy + EAy));
+		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1) / imp0;
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKy = K; HSy = S; HAy = A;
-		HBy = eyp(-dt/eps0*(HSy/HKy + HAy));
-		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1);
+		HBy = exp(-dt/eps0*(HSy/HKy + HAy));
+		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1) * imp0;
 	}
 
 
@@ -589,24 +632,9 @@ struct PMLIz<ThreeD>{
 	double & pmlHIzz() {return HIzz;};
 };
 
+
 template <>
 struct PMLIz<TE>{
-	// E convolution terms
-	double EIzz;
-
-	// H convolution terms
-	double HIzx;
-	double HIzy;
-
-	// accessors
-	double & pmlEIzz() {return EIzz;};
-	double & pmlHIzx() {return HIzx;};
-	double & pmlHIzy() {return HIzy;};
-};
-
-
-template <>
-struct PMLIz<TM>{
 	// E convolution terms
 	double EIzx;
 	double EIzy;
@@ -622,16 +650,34 @@ struct PMLIz<TM>{
 
 
 template <>
-struct PMLIz<TEM>{
+struct PMLIz<TM>{
 	// E convolution terms
-	double EIzy;
+	double EIzz;
 
 	// H convolution terms
-	double HIzz;
+	double HIzx;
+	double HIzy;
 
 	// accessors
-	double & pmlEIzy() {return EIzy;};
-	double & pmlHIzz() {return HIzz;};
+	double & pmlEIzz() {return EIzz;};
+	double & pmlHIzx() {return HIzx;};
+	double & pmlHIzy() {return HIzy;};
+};
+
+
+
+
+template <>
+struct PMLIz<TEM>{
+	// E convolution terms
+	double EIzz;
+
+	// H convolution terms
+	double HIzy;
+
+	// accessors
+	double & pmlEIzz() {return EIzz;};
+	double & pmlHIzy() {return HIzy;};
 };
 
 
@@ -676,14 +722,14 @@ struct StoredPMLz : public PMLIz<Mode>{
 
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKz = K; ESz = S; EAz = A;
-		EBz = ezp(-dt/eps0*(ESz/EKz + EAz));
-		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1);
+		EBz = exp(-dt/eps0*(ESz/EKz + EAz));
+		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1) / imp0;
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKz = K; HSz = S; HAz = A;
-		HBz = ezp(-dt/eps0*(HSz/HKz + HAz));
-		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1);
+		HBz = exp(-dt/eps0*(HSz/HKz + HAz));
+		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1) * imp0;
 	}
 
 

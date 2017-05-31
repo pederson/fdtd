@@ -271,10 +271,6 @@ struct YeeUpdateB<TEM>{
 
 	YeeUpdateB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	// template<class YeeCell>
-	// void operator()(YeeCell & f){
-	// 	f.By() -= dt/dx*(- f.getNeighborMax(0).Ez() + f.Ez());
-	// };
 	template<class YeeCell>
 	void operator()(YeeCell & f){
 		f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));

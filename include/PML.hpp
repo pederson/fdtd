@@ -2,6 +2,7 @@
 #define _PML_H
 
 #include <array>
+#include <algorithm>
 
 #include "FDTDConstants.hpp"
 
@@ -60,10 +61,10 @@ struct UpdatePMLD<TEM>{
 
 	UpdatePMLD<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		f.pmlHIxy() = f.pmlHBy()*f.pmlHIxy() + f.pmlHCy()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
-		f.Dz() += f.pmlHIxy();
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
+		f.Dz() += f.pmlHIxy()*dt;
 	};
 };
 
@@ -95,10 +96,10 @@ struct UpdatePMLB<TEM>{
 
 	UpdatePMLB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		f.pmlEIxz() = f.pmlEBx()*f.pmlEIxz() + f.pmlECx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());	
-		f.By() -= f.pmlEIxz();
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ez() - f.Ez());	
+		f.By() += f.pmlEIxz()*dt;
 	};
 };
 
@@ -395,13 +396,13 @@ struct StoredPMLx : public PMLIx<Mode>{
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKx = K; ESx = S; EAx = A;
 		EBx = exp(-dt/eps0*(ESx/EKx + EAx));
-		ECx = ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1) / imp0;
+		ECx = (S==0 && A == 0) ? 0.0 : ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1.0);
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKx = K; HSx = S; HAx = A;
 		HBx = exp(-dt/eps0*(HSx/HKx + HAx));
-		HCx = HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1) * imp0;
+		HCx = (S==0 && A == 0) ? 0.0 : HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1.0);
 	}
 
 
@@ -557,13 +558,13 @@ struct StoredPMLy : public PMLIy<Mode>{
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKy = K; ESy = S; EAy = A;
 		EBy = exp(-dt/eps0*(ESy/EKy + EAy));
-		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1) / imp0;
+		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1);
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKy = K; HSy = S; HAy = A;
 		HBy = exp(-dt/eps0*(HSy/HKy + HAy));
-		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1) * imp0;
+		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1);
 	}
 
 
@@ -723,13 +724,15 @@ struct StoredPMLz : public PMLIz<Mode>{
 	void setPMLParametersE(double K, double S, double A, double dt){
 		EKz = K; ESz = S; EAz = A;
 		EBz = exp(-dt/eps0*(ESz/EKz + EAz));
-		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1) / imp0;
+		// EBz = exp(-dt*(ESz/EKz + EAz));
+		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1);
 	}
 
 	void setPMLParametersH(double K, double S, double A, double dt){
 		HKz = K; HSz = S; HAz = A;
 		HBz = exp(-dt/eps0*(HSz/HKz + HAz));
-		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1) * imp0;
+		// HBz = exp(-dt*(HSz/HKz + HAz));
+		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1);
 	}
 
 
@@ -766,6 +769,9 @@ struct StoredPMLz : public PMLIz<Mode>{
 struct PMLParameterModel{
 	double mM, mMa;
 	double msMax, mkMax, maMax;
+	// static const double msMin = 0.0;
+	// static const double mkMin = 1.0;
+	// static const double maMin = 0.0;
 
 	PMLParameterModel(double dx)
 	: mM(3), mMa(1), msMax(0.8*(mM+1)/(imp0*dx)), mkMax(5), maMax(0.05) {};
@@ -773,9 +779,20 @@ struct PMLParameterModel{
 	PMLParameterModel(double m, double ma, double sMax, double kMax, double aMax)
 	: mM(m), mMa(ma), msMax(sMax), mkMax(kMax), maMax(aMax) {};
 	
-	double K(double x) const {return 1.0+pow(x,mM)*(mkMax-1.0);};
-	double S(double x) const {return pow(x,mM)*msMax;};
-	double A(double x) const {return pow(1.0-x, mMa)*maMax;};
+	double K(double x) const {
+		if (x<0.0) return 1.0;
+		return (x > 1.0 ? 1.0 : 1.0+pow(x,mM)*(mkMax-1.0));
+	};
+
+	double S(double x) const {
+		if (x<0.0) return 0.0;
+		return (x > 1.0 ? 0.0 : pow(x,mM)*msMax);
+	};
+
+	double A(double x) const {
+		if (x<0.0) return 0.0;
+		return (x > 1.0 ? 0.0 : pow(1.0-x, mMa)*maMax);
+	};
 
 };
 

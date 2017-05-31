@@ -54,6 +54,82 @@ struct UpdatePMLD{
 };
 
 
+
+// specialization for 3D
+template<>
+struct UpdatePMLD<ThreeD>{
+	double dt, dx;
+
+	UpdatePMLD<ThreeD>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(2).Hz());
+		f.Dy() -= f.pmlHIxz()*dt;
+
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());
+		f.Dz() += f.pmlHIxy()*dt;
+
+		// y direction
+		f.pmlHIyz() = f.pmlEBy()*f.pmlHIyz() + f.pmlECy()/dx*(f.Hz() - f.getNeighborMin(1).Hz());	
+		f.Dx() += f.pmlHIyz()*dt;
+
+		f.pmlHIyx() = f.pmlEBy()*f.pmlHIyx() + f.pmlECy()/dx*(f.Hx() - f.getNeighborMin(1).Hx());	
+		f.Dz() -= f.pmlHIyx()*dt;
+
+		// z direction
+		f.pmlHIzy() = f.pmlEBz()*f.pmlHIzy() + f.pmlECz()/dx*(f.Hy() - f.getNeighborMin(2).Hy());	
+		f.Dx() -= f.pmlHIzy()*dt;
+
+		f.pmlHIzx() = f.pmlEBz()*f.pmlHIzx() + f.pmlECz()/dx*(f.Hx() - f.getNeighborMin(2).Hx());	
+		f.Dy() += f.pmlHIzx()*dt;
+	};
+};
+
+
+
+// specialization for TE
+template<>
+struct UpdatePMLD<TE>{
+	double dt, dx;
+
+	UpdatePMLD<TE>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(2).Hz());
+		f.Dy() -= f.pmlHIxz()*dt;
+
+		// y direction
+		f.pmlHIyz() = f.pmlEBy()*f.pmlHIyz() + f.pmlECy()/dx*(f.Hz() - f.getNeighborMin(1).Hz());	
+		f.Dx() += f.pmlHIyz()*dt;
+	};
+};
+
+
+// specialization for TM
+template<>
+struct UpdatePMLD<TM>{
+	double dt, dx;
+
+	UpdatePMLD<TM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());
+		f.Dz() += f.pmlHIxy()*dt;
+
+		// y direction
+		f.pmlHIyx() = f.pmlEBy()*f.pmlHIyx() + f.pmlECy()/dx*(f.Hx() - f.getNeighborMin(1).Hx());	
+		f.Dz() -= f.pmlHIyx()*dt;
+
+	};
+};
+
+
 // specialization for TEM
 template<>
 struct UpdatePMLD<TEM>{
@@ -86,6 +162,79 @@ template <class Mode>
 struct UpdatePMLB{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	
+};
+
+
+// specialization for 3D
+template<>
+struct UpdatePMLB<ThreeD>{
+	double dt, dx;
+
+	UpdatePMLB<ThreeD>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(2).Ez());
+		f.By() += f.pmlEIxz()*dt;
+
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.Ey() - f.getNeighborMin(0).Ey());
+		f.Bz() -= f.pmlEIxy()*dt;
+
+		// y direction
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.Ez() - f.getNeighborMin(1).Ez());	
+		f.Bx() -= f.pmlEIyz()*dt;
+
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.Ex() - f.getNeighborMin(1).Ex());	
+		f.Bz() += f.pmlEIyx()*dt;
+
+		// z direction
+		f.pmlEIzy() = f.pmlHBz()*f.pmlEIzy() + f.pmlHCz()/dx*(f.Ey() - f.getNeighborMin(2).Ey());	
+		f.Bx() += f.pmlEIzy()*dt;
+
+		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/dx*(f.Ex() - f.getNeighborMin(2).Ex());	
+		f.By() -= f.pmlHIzx()*dt;
+	};
+};
+
+
+// specialization for TE
+template<>
+struct UpdatePMLB<TE>{
+	double dt, dx;
+
+	UpdatePMLB<TE>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.Ey() - f.getNeighborMin(0).Ey());
+		f.Bz() -= f.pmlEIxy()*dt;
+
+		// y direction
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.Ex() - f.getNeighborMin(1).Ex());	
+		f.Bz() += f.pmlEIyx()*dt;
+	};
+};
+
+
+// specialization for TM
+template<>
+struct UpdatePMLB<TM>{
+	double dt, dx;
+
+	UpdatePMLB<TM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		// x direction
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(2).Ez());
+		f.By() += f.pmlEIxz()*dt;
+
+		// y direction
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.Ez() - f.getNeighborMin(1).Ez());	
+		f.Bx() -= f.pmlEIyz()*dt;
+	};
 };
 
 
@@ -393,13 +542,13 @@ struct StoredPMLx : public PMLIx<Mode>{
 	// 								   setPMLParametersH(HKx, HSx, HAx, dt);};
 
 
-	void setPMLParametersE(double K, double S, double A, double dt){
+	void setPMLParametersEx(double K, double S, double A, double dt){
 		EKx = K; ESx = S; EAx = A;
 		EBx = exp(-dt/eps0*(ESx/EKx + EAx));
 		ECx = (S==0 && A == 0) ? 0.0 : ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1.0);
 	}
 
-	void setPMLParametersH(double K, double S, double A, double dt){
+	void setPMLParametersHx(double K, double S, double A, double dt){
 		HKx = K; HSx = S; HAx = A;
 		HBx = exp(-dt/eps0*(HSx/HKx + HAx));
 		HCx = (S==0 && A == 0) ? 0.0 : HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1.0);
@@ -555,13 +704,13 @@ struct StoredPMLy : public PMLIy<Mode>{
 	// 								   setPMLParametersH(HKy, HSy, HAy, dt);};
 
 
-	void setPMLParametersE(double K, double S, double A, double dt){
+	void setPMLParametersEy(double K, double S, double A, double dt){
 		EKy = K; ESy = S; EAy = A;
 		EBy = exp(-dt/eps0*(ESy/EKy + EAy));
 		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1);
 	}
 
-	void setPMLParametersH(double K, double S, double A, double dt){
+	void setPMLParametersHy(double K, double S, double A, double dt){
 		HKy = K; HSy = S; HAy = A;
 		HBy = exp(-dt/eps0*(HSy/HKy + HAy));
 		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1);
@@ -721,14 +870,14 @@ struct StoredPMLz : public PMLIz<Mode>{
 	// 								   setPMLParametersH(HKz, HSz, HAz, dt);};
 
 
-	void setPMLParametersE(double K, double S, double A, double dt){
+	void setPMLParametersEz(double K, double S, double A, double dt){
 		EKz = K; ESz = S; EAz = A;
 		EBz = exp(-dt/eps0*(ESz/EKz + EAz));
 		// EBz = exp(-dt*(ESz/EKz + EAz));
 		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1);
 	}
 
-	void setPMLParametersH(double K, double S, double A, double dt){
+	void setPMLParametersHz(double K, double S, double A, double dt){
 		HKz = K; HSz = S; HAz = A;
 		HBz = exp(-dt/eps0*(HSz/HKz + HAz));
 		// HBz = exp(-dt*(HSz/HKz + HAz));
@@ -769,9 +918,6 @@ struct StoredPMLz : public PMLIz<Mode>{
 struct PMLParameterModel{
 	double mM, mMa;
 	double msMax, mkMax, maMax;
-	// static const double msMin = 0.0;
-	// static const double mkMin = 1.0;
-	// static const double maMin = 0.0;
 
 	PMLParameterModel(double dx)
 	: mM(3), mMa(1), msMax(0.8*(mM+1)/(imp0*dx)), mkMax(5), maMax(0.05) {};

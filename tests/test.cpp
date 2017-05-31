@@ -20,6 +20,9 @@ int main(int argc, char * argv[]){
 	// std::cout << typeid(y).name() << std::endl;
 
 	typedef YeeFieldsTEM<double, std::array> yeefieldT;
+	static bool pmlx = true;
+	static bool pmly = false;
+	static bool pmlz = false;
 	typedef PML<TEM, true, false, false> pmlT;
 	typedef YeeCell<yeefieldT, VacuumPolarization, VacuumMagnetization, Neighbor1, pmlT> YeeCellVacTEM;
 	std::vector<YeeCellVacTEM> cells1(50);
@@ -38,12 +41,13 @@ int main(int argc, char * argv[]){
 	for (auto i=1; i<nPML+2; i++){
 		double x = static_cast<double>(nPML-i+1)/static_cast<double>(nPML);
 		double xm = x - 0.5/static_cast<double>(nPML);
-		cells1[i].setPMLParametersE(p.K(x), p.S(x), p.A(x), dt);
-		cells1[i].setPMLParametersH(p.K(xm), p.S(xm), p.A(xm), dt);
+		if (pmlx){
+			cells1[i].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
+			cells1[i].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
 
-		cells1[50-i].setPMLParametersE(p.K(x), p.S(x), p.A(x), dt);
-		cells1[49-i].setPMLParametersH(p.K(xm), p.S(xm), p.A(xm), dt);
-
+			cells1[50-i].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
+			cells1[49-i].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
+		}
 	}
 
 
@@ -61,7 +65,7 @@ int main(int argc, char * argv[]){
 	for (auto t=0; t<200; t++){
 		std::for_each(++cells1.begin(), --cells1.end(), YeeUpdateD<TEM>(dt,dx));
 		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);
-		cells1[25].Dz() = exp(-(t-10)*(t-10)*0.05);
+		cells1[25].Dz() += exp(-(t-10)*(t-10)*0.05);
 		std::for_each(++cells1.begin(), --cells1.end(), UpdatePMLD<TEM>(dt,dx));
 		std::for_each(++cells1.begin(), --cells1.end(), ConstantUpdateE<TEM>(1));
 	

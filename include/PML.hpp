@@ -65,7 +65,7 @@ struct UpdatePMLD<ThreeD>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(2).Hz());
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(0).Hz());
 		f.Dy() -= f.pmlHIxz()*dt;
 
 		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());
@@ -99,7 +99,7 @@ struct UpdatePMLD<TE>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(2).Hz());
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/dx*(f.Hz() - f.getNeighborMin(0).Hz());
 		f.Dy() -= f.pmlHIxz()*dt;
 
 		// y direction
@@ -175,7 +175,7 @@ struct UpdatePMLB<ThreeD>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(2).Ez());
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());
 		f.By() += f.pmlEIxz()*dt;
 
 		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.Ey() - f.getNeighborMin(0).Ey());
@@ -228,7 +228,7 @@ struct UpdatePMLB<TM>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(2).Ez());
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());
 		f.By() += f.pmlEIxz()*dt;
 
 		// y direction

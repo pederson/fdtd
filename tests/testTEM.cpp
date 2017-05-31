@@ -9,33 +9,35 @@
 using namespace fdtd;
 
 // compile with:
-// 			clang++-3.8 -std=c++14 -stdlib=libc++ -I../ test.cpp -o test
+// 			clang++-3.8 -std=c++14 -stdlib=libc++ -I../ testTEM.cpp -o test
 
 
 int main(int argc, char * argv[]){
 
-	typedef YeeCell<YeeFields3D<double, std::array>, VacuumPolarization, VacuumMagnetization, Neighbor3, PML<ThreeD, true, true, true>> YeeCellVac3D;
-	YeeCellVac3D y;
+	// time-stepping parameters
+	double cfl = 0.9;
+	double dx = 1e-6;
+	double dt=cfl*dx/c0;
 
 	// std::cout << typeid(y).name() << std::endl;
 
+	// YeeCell typedefs
 	typedef YeeFieldsTEM<double, std::array> yeefieldT;
 	static bool pmlx = true;
 	static bool pmly = false;
 	static bool pmlz = false;
 	typedef PML<TEM, true, false, false> pmlT;
 	typedef YeeCell<yeefieldT, VacuumPolarization, VacuumMagnetization, Neighbor1, pmlT> YeeCellVacTEM;
+	
+	// define the domain data structure and connect neighbors
 	std::vector<YeeCellVacTEM> cells1(50);
-
 	for (auto i=1; i<49; i++){
 		cells1[i].setNeighborMin(0, cells1[i-1]);
 		cells1[i].setNeighborMax(0, cells1[i+1]);
 	}
 
-	double cfl = 0.9;
-	double dx = 1e-6;
-	double dt=cfl*dx/c0;
-	// double dx=c0;
+	
+	// setup the PML parameters
 	PMLParameterModel p(dx);
 	int nPML = 10;
 	for (auto i=1; i<nPML+2; i++){
@@ -51,17 +53,7 @@ int main(int argc, char * argv[]){
 	}
 
 
-	// for (auto i=0; i<50; i++){
-	// 	std::cout << "i: " << i << " x: " << static_cast<double>(nPML-i+1)/static_cast<double>(nPML);;
-	// 	std::cout << "\t K_E: " << cells1[i].pmlEKx() << " S_E: " << cells1[i].pmlESx() ;
-	// 	std::cout << " A_E: " << cells1[i].pmlEAx() << " B_E: " << cells1[i].pmlEBx() << " C_E: " << cells1[i].pmlECx();
-	
-	// 	std::cout << "\t K_H: " << cells1[i].pmlHKx() << " S_H: " << cells1[i].pmlHSx() ;
-	// 	std::cout << " A_H: " << cells1[i].pmlHAx() << " B_H: " << cells1[i].pmlHBx() << " C_H: " << cells1[i].pmlHCx() << std::endl;
-
-	// }
-	// throw -1;
-
+	// start time-stepping
 	for (auto t=0; t<200; t++){
 		std::for_each(++cells1.begin(), --cells1.end(), YeeUpdateD<TEM>(dt,dx));
 		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);

@@ -9,7 +9,7 @@
 using namespace fdtd;
 
 // compile with:
-// 			clang++-3.8 -std=c++14 -stdlib=libc++ -I../ testTM.cpp -o test
+// 			clang++-3.8 -std=c++14 -stdlib=libc++ -I../ testTE.cpp -o testTE
 
 
 int main(int argc, char * argv[]){
@@ -20,15 +20,15 @@ int main(int argc, char * argv[]){
 	double dt=cfl*dx/(c0*fdtd::sqrt(2.0));
 
 	// YeeCell typedefs
-	typedef YeeFieldsTM<double, std::array> yeefieldT;
+	typedef YeeFieldsTE<double, std::array> yeefieldT;
 	static bool pmlx = true;
 	static bool pmly = true;
 	static bool pmlz = false;
-	typedef PML<TM, true, true, false> pmlT;
-	typedef YeeCell<yeefieldT, VacuumPolarization, VacuumMagnetization, Neighbor2, pmlT> YeeCellVacTM;
+	typedef PML<TE, true, true, false> pmlT;
+	typedef YeeCell<yeefieldT, VacuumPolarization, VacuumMagnetization, Neighbor2, pmlT> YeeCellVacTE;
 	
 	// define the domain data structure and connect neighbors
-	std::vector<std::vector<YeeCellVacTM>> cells1(50);
+	std::vector<std::vector<YeeCellVacTE>> cells1(50);
 	for (auto i=0; i<50; i++) cells1[i].resize(50);
 	for (auto i=1; i<49; i++){
 		for (auto j=1; j<49; j++){
@@ -100,23 +100,23 @@ int main(int argc, char * argv[]){
 	// std::cout << "am here" << std::endl;
 	// start time-stepping
 	for (auto t=0; t<200; t++){
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), YeeUpdateD<TM>(dt,dx));
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), YeeUpdateD<TE>(dt,dx));
 		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);
-		cells1[25][25].Dz() += exp(-(t-10)*(t-10)*0.05);
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), UpdatePMLD<TM>(dt,dx));
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), ConstantUpdateE<TM>(1));
+		cells1[25][25].Bz() += exp(-(t-10)*(t-10)*0.05);
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), UpdatePMLD<TE>(dt,dx));
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), ConstantUpdateE<TE>(1));
 	
 		// std::cout << "here" << std::endl;
 
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), YeeUpdateB<TM>(dt,dx));
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), UpdatePMLB<TM>(dt,dx));
-		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), ConstantUpdateH<TM>(1));
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), YeeUpdateB<TE>(dt,dx));
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), UpdatePMLB<TE>(dt,dx));
+		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), ConstantUpdateH<TE>(1));
 	
 		// std::cout << "here1" << std::endl;
 		// std::cout << "Ez:" ;
 		for(auto i=0; i<50; i++){
 			for(auto j=0; j<50; j++){
-				std::cout << ", " << cells1[i][j].Ez() ;
+				std::cout << ", " << cells1[i][j].Hz() ;
 			}
 		}
 		std::cout << std::endl;

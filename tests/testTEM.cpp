@@ -52,6 +52,21 @@ int main(int argc, char * argv[]){
 		}
 	}
 
+	for(auto j=0; j<50; j++){
+			std::cout << " EKx: " << cells1[j].pmlEKx() ;
+			std::cout << " ESx: " << cells1[j].pmlESx() ;
+			std::cout << " EAx: " << cells1[j].pmlEAx() ;
+			std::cout << " EBx: " << cells1[j].pmlEBx() ;
+			std::cout << " ECx: " << cells1[j].pmlECx() ;
+			std::cout << " HKx: " << cells1[j].pmlHKx() ;
+			std::cout << " HSx: " << cells1[j].pmlHSx() ;
+			std::cout << " HAx: " << cells1[j].pmlHAx() ;
+			std::cout << " HBx: " << cells1[j].pmlHBx() ;
+			std::cout << " HCx: " << cells1[j].pmlHCx() ;
+			std::cout << std::endl;
+	}
+	throw -1;
+
 
 	// start time-stepping
 	for (auto t=0; t<200; t++){

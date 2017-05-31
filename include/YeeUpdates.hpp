@@ -76,7 +76,7 @@ struct YeeUpdateD<TE>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dx() += dt/dx*( 1.0/f.pmlEKy()*(f.Hz() - f.getNeighborMin(1).Hz()) - 1.0/f.pmlEKz()*(f.Hy() - f.getNeighborMin(2).Hy()));
+		f.Dx() += dt/dx*( 1.0/f.pmlEKy()*(f.Hz() - f.getNeighborMin(1).Hz()));
 		f.Dy() += dt/dx*(-1.0/f.pmlEKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
 	};
 };

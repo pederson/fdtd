@@ -175,24 +175,24 @@ struct UpdatePMLB<ThreeD>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ez() - f.Ez());
 		f.By() += f.pmlEIxz()*dt;
 
-		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.Ey() - f.getNeighborMin(0).Ey());
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ey() - f.Ey());
 		f.Bz() -= f.pmlEIxy()*dt;
 
 		// y direction
-		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.Ez() - f.getNeighborMin(1).Ez());	
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.getNeighborMax(1).Ez() - f.Ez());	
 		f.Bx() -= f.pmlEIyz()*dt;
 
-		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.Ex() - f.getNeighborMin(1).Ex());	
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.getNeighborMax(1).Ex() - f.Ex());	
 		f.Bz() += f.pmlEIyx()*dt;
 
 		// z direction
-		f.pmlEIzy() = f.pmlHBz()*f.pmlEIzy() + f.pmlHCz()/dx*(f.Ey() - f.getNeighborMin(2).Ey());	
+		f.pmlEIzy() = f.pmlHBz()*f.pmlEIzy() + f.pmlHCz()/dx*(f.getNeighborMax(2).Ey() - f.Ey());	
 		f.Bx() += f.pmlEIzy()*dt;
 
-		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/dx*(f.Ex() - f.getNeighborMin(2).Ex());	
+		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/dx*(f.getNeighborMax(2).Ex() - f.Ex());	
 		f.By() -= f.pmlHIzx()*dt;
 	};
 };
@@ -208,11 +208,11 @@ struct UpdatePMLB<TE>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.Ey() - f.getNeighborMin(0).Ey());
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ey() - f.Ey());
 		f.Bz() -= f.pmlEIxy()*dt;
 
 		// y direction
-		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.Ex() - f.getNeighborMin(1).Ex());	
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/dx*(f.getNeighborMax(1).Ex() - f.Ex());	
 		f.Bz() += f.pmlEIyx()*dt;
 	};
 };
@@ -228,11 +228,11 @@ struct UpdatePMLB<TM>{
 	template <class YeeCell>
 	void operator()(YeeCell & f){
 		// x direction
-		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.Ez() - f.getNeighborMin(0).Ez());
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ez() - f.Ez());
 		f.By() += f.pmlEIxz()*dt;
 
 		// y direction
-		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.Ez() - f.getNeighborMin(1).Ez());	
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/dx*(f.getNeighborMax(1).Ez() - f.Ez());	
 		f.Bx() -= f.pmlEIyz()*dt;
 	};
 };
@@ -707,13 +707,13 @@ struct StoredPMLy : public PMLIy<Mode>{
 	void setPMLParametersEy(double K, double S, double A, double dt){
 		EKy = K; ESy = S; EAy = A;
 		EBy = exp(-dt/eps0*(ESy/EKy + EAy));
-		ECy = ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1);
+		ECy = (S==0 && A == 0) ? 0.0 : ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1.0);
 	}
 
 	void setPMLParametersHy(double K, double S, double A, double dt){
 		HKy = K; HSy = S; HAy = A;
 		HBy = exp(-dt/eps0*(HSy/HKy + HAy));
-		HCy = HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1);
+		HCy = (S==0 && A == 0) ? 0.0 : HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1.0);
 	}
 
 
@@ -873,15 +873,13 @@ struct StoredPMLz : public PMLIz<Mode>{
 	void setPMLParametersEz(double K, double S, double A, double dt){
 		EKz = K; ESz = S; EAz = A;
 		EBz = exp(-dt/eps0*(ESz/EKz + EAz));
-		// EBz = exp(-dt*(ESz/EKz + EAz));
-		ECz = ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1);
+		ECz = (S==0 && A == 0) ? 0.0 : ESz/EKz*1.0/(ESz+EKz*EAz)*(EBz-1.0);
 	}
 
 	void setPMLParametersHz(double K, double S, double A, double dt){
 		HKz = K; HSz = S; HAz = A;
 		HBz = exp(-dt/eps0*(HSz/HKz + HAz));
-		// HBz = exp(-dt*(HSz/HKz + HAz));
-		HCz = HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1);
+		HCz = (S==0 && A == 0) ? 0.0 : HSz/HKz*1.0/(HSz+HKz*HAz)*(HBz-1.0);
 	}
 
 

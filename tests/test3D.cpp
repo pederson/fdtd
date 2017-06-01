@@ -5,6 +5,8 @@
 #include <vector>
 #include <algorithm>
 
+#include <cmath>
+
 
 using namespace fdtd;
 
@@ -15,9 +17,9 @@ using namespace fdtd;
 int main(int argc, char * argv[]){
 
 	// time-stepping parameters
-	double cfl = 0.9;
-	double dx = 1e-6;
-	double dt=cfl*dx/(c0*fdtd::sqrt(3.0));
+	const double cfl = 0.99;
+	const double dx = 1e-6;
+	const double dt=cfl*dx/(c0*fdtd::sqrt(3.0));
 
 	// YeeCell typedefs
 	typedef YeeFields3D<double, std::array> yeefieldT;
@@ -56,45 +58,61 @@ int main(int argc, char * argv[]){
 			double xm = x - 0.5/static_cast<double>(nPML);
 			for (auto j=0; j<50; j++){
 				for (auto k=0; k<50; k++){
-					cells1[i][j][k].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
-					cells1[i][j][k].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
+					if (pmlx){
+						cells1[i][j][k].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
+						cells1[i][j][k].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
 
-					cells1[50-i][j][k].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
-					cells1[49-i][j][k].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
+						cells1[50-i][j][k].setPMLParametersEx(p.K(x), p.S(x), p.A(x), dt);
+						cells1[49-i][j][k].setPMLParametersHx(p.K(xm), p.S(xm), p.A(xm), dt);
+					}
+					if (pmly){
+						cells1[j][i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
+						cells1[j][i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
+
+						cells1[j][50-i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
+						cells1[j][49-i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
+					}
+					if (pmlz){
+						cells1[j][k][i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
+						cells1[j][k][i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
+
+						cells1[j][k][50-i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
+						cells1[j][k][49-i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
+					}
 				}
 			}
 		}
 	}
-	if (pmly){
-		for (auto i=1; i<nPML+2; i++){
-			double x = static_cast<double>(nPML-i+1)/static_cast<double>(nPML);
-			double xm = x - 0.5/static_cast<double>(nPML);
-			for (auto j=0; j<50; j++){
-				for (auto k=0; k<50; k++){
-					cells1[j][i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
-					cells1[j][i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
+	// if (pmly){
+	// 	for (auto i=1; i<nPML+2; i++){
+	// 		double x = static_cast<double>(nPML-i+1)/static_cast<double>(nPML);
+	// 		double xm = x - 0.5/static_cast<double>(nPML);
+	// 		for (auto j=0; j<50; j++){
+	// 			for (auto k=0; k<50; k++){
+	// 				cells1[j][i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
+	// 				cells1[j][i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
 
-					cells1[j][50-i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
-					cells1[j][49-i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
-				}
-			}
-		}
-	}
-	if (pmlz){
-		for (auto i=1; i<nPML+2; i++){
-			double x = static_cast<double>(nPML-i+1)/static_cast<double>(nPML);
-			double xm = x - 0.5/static_cast<double>(nPML);
-			for (auto j=0; j<50; j++){
-				for (auto k=0; k<50; k++){
-					cells1[j][k][i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
-					cells1[j][k][i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
+	// 				cells1[j][50-i][k].setPMLParametersEy(p.K(x), p.S(x), p.A(x), dt);
+	// 				cells1[j][49-i][k].setPMLParametersHy(p.K(xm), p.S(xm), p.A(xm), dt);
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// if (pmlz){
+	// 	for (auto i=1; i<nPML+2; i++){
+	// 		double x = static_cast<double>(nPML-i+1)/static_cast<double>(nPML);
+	// 		double xm = x - 0.5/static_cast<double>(nPML);
+	// 		for (auto j=0; j<50; j++){
+	// 			for (auto k=0; k<50; k++){
+	// 				cells1[j][k][i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
+	// 				cells1[j][k][i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
 
-					cells1[j][k][50-i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
-					cells1[j][k][49-i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
-				}
-			}
-		}
-	}
+	// 				cells1[j][k][50-i].setPMLParametersEz(p.K(x), p.S(x), p.A(x), dt);
+	// 				cells1[j][k][49-i].setPMLParametersHz(p.K(xm), p.S(xm), p.A(xm), dt);
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 
 	// // for(auto i=0; i<50; i++){
@@ -125,12 +143,15 @@ int main(int argc, char * argv[]){
 
 	// std::cout << "am here" << std::endl;
 	// start time-stepping
-	for (auto t=0; t<100; t++){
+	for (auto t=0; t<200; t++){
+		std::cout << "t: " << t << "\r" << std::flush;
 		for (auto i=1; i<49; i++){
 			for (auto j=1; j<49; j++) std::for_each(++cells1[i][j].begin(), --cells1[i][j].end(), YeeUpdateD<ThreeD>(dt,dx));
 		}
-		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);
-		cells1[25][25][25].Dz() = exp(-(t-10)*(t-10)*0.05);
+		cells1[25][25][25].Dz() += sin(2*pi*c0/(20*dx)*static_cast<double>(t)*dt);
+		// cells1[25][25][25].Dz() = exp(-(t-10)*(t-10)*dt*dt*c0/(20*dx));
+		// cells1[25][25][26].Dz() = 0;
+		// cells1[25][25][24].Dz() = 0;
 		for (auto i=1; i<49; i++){
 			for (auto j=1; j<49; j++) std::for_each(++cells1[i][j].begin(), --cells1[i][j].end(), UpdatePMLD<ThreeD>(dt,dx));
 		}
@@ -148,14 +169,13 @@ int main(int argc, char * argv[]){
 		for (auto i=1; i<49; i++){
 			for (auto j=1; j<49; j++) std::for_each(++cells1[i][j].begin(), --cells1[i][j].end(), ConstantUpdateH<ThreeD>(1));
 		}
-		// std::cout << "here1" << std::endl;
-		// std::cout << "Ez:" ;
-		for(auto i=0; i<50; i++){
-			for(auto j=0; j<50; j++){
-				std::cout << ", " << cells1[i][j][25].Ez() ;
-			}
-		}
-		std::cout << std::endl;
+
+		// for(auto i=0; i<50; i++){
+		// 	for(auto j=0; j<50; j++){
+		// 		std::cout << ", " << cells1[i][j][25].Ez() ;
+		// 	}
+		// }
+		// std::cout << std::endl;
 	}
 
 	return 0;

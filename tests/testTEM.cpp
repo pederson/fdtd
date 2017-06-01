@@ -15,9 +15,9 @@ using namespace fdtd;
 int main(int argc, char * argv[]){
 
 	// time-stepping parameters
-	double cfl = 0.9;
-	double dx = 1e-6;
-	double dt=cfl*dx/c0;
+	const double cfl = 0.9;
+	const double dx = 1e-6;
+	const double dt=cfl*dx/c0;
 
 	// std::cout << typeid(y).name() << std::endl;
 
@@ -71,8 +71,8 @@ int main(int argc, char * argv[]){
 	// start time-stepping
 	for (auto t=0; t<200; t++){
 		std::for_each(++cells1.begin(), --cells1.end(), YeeUpdateD<TEM>(dt,dx));
-		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);
-		cells1[25].Dz() += exp(-(t-10)*(t-10)*0.05);
+		// if (t<19) cells1[25].Dz() = sin(2*pi*c0/(20*dx)*t*dt);
+		cells1[25].Dz() += exp(-(t-10)*(t-10)*c0/(20*dx)*dt*dt);
 		std::for_each(++cells1.begin(), --cells1.end(), UpdatePMLD<TEM>(dt,dx));
 		std::for_each(++cells1.begin(), --cells1.end(), ConstantUpdateE<TEM>(1));
 	

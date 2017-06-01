@@ -15,9 +15,9 @@ using namespace fdtd;
 int main(int argc, char * argv[]){
 
 	// time-stepping parameters
-	double cfl = 0.9;
-	double dx = 1e-6;
-	double dt=cfl*dx/(c0*fdtd::sqrt(2.0));
+	const double cfl = 0.9;
+	const double dx = 1e-6;
+	const double dt=cfl*dx/(c0*fdtd::sqrt(2.0));
 
 	// YeeCell typedefs
 	typedef YeeFieldsTE<double, std::array> yeefieldT;
@@ -101,8 +101,8 @@ int main(int argc, char * argv[]){
 	// start time-stepping
 	for (auto t=0; t<200; t++){
 		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), YeeUpdateD<TE>(dt,dx));
-		// if (t<19) cells1[25].Dz() = sin(2*pi*0.05*t);
-		cells1[25][25].Bz() += exp(-(t-10)*(t-10)*0.05);
+		// if (t<19) cells1[25].Dz() = sin(2*pi*c0/(20*dx)*t*dt);
+		cells1[25][25].Bz() += exp(-(t-10)*(t-10)*c0/(20*dx)*dt*dt);
 		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), UpdatePMLD<TE>(dt,dx));
 		for (auto i=1; i<49; i++) std::for_each(++cells1[i].begin(), --cells1[i].end(), ConstantUpdateE<TE>(1));
 	

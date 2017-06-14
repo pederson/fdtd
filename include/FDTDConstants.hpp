@@ -44,10 +44,10 @@ static constexpr double imp0 = sqrt(mu0/eps0); /**< free space impedance */
 
 
 struct EMMode{};
-struct TE : public EMMode{};
-struct TM : public EMMode{};
-struct TEM : public EMMode{};
-struct ThreeD : public EMMode{};
+struct TE : public EMMode{static const std::size_t dim=2;};
+struct TM : public EMMode{static const std::size_t dim=2;};
+struct TEM : public EMMode{static const std::size_t dim=1;};
+struct ThreeD : public EMMode{static const std::size_t dim=3;};
 
 
 

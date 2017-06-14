@@ -68,9 +68,9 @@ public:
 	template<std::size_t d>
 	const EMFields & getNeighborMin() const {return *std::get<d>(mNeighbLo);};
 	template<std::size_t d>
-	void setNeighborMax(const EMFields & f){return std::get<d>(mNeighbHi) = &f;};
+	void setNeighborMax(const EMFields & f){std::get<d>(mNeighbHi) = &f;};
 	template<std::size_t d>
-	void setNeighborMin(const EMFields & f){return std::get<d>(mNeighbLo) = &f;};
+	void setNeighborMin(const EMFields & f){std::get<d>(mNeighbLo) = &f;};
 
 	// convenience accessors
 	const EMFields & xMin() const {return std::get<0>(mNeighbLo);};
@@ -130,13 +130,11 @@ using Neighbor3 = typename Neighbor3Typedef<C>::type;
 template <class FieldPolicy,
 		  class PolarizationPolicy,
 		  class MagnetizationPolicy,
-		  template <class> class NeighborPolicy,
 		  class PMLPolicy = NoPML,
 		  class SourcePolicy = NoSource>
 class YeeCell : public FieldPolicy,
 				public PolarizationPolicy,
 				public MagnetizationPolicy,
-				public NeighborPolicy<FieldPolicy>,
 				public PMLPolicy,
 				public SourcePolicy 
 {
@@ -144,7 +142,7 @@ public:
 	typedef FieldPolicy		 				FieldT;
 	typedef PolarizationPolicy 				PolarizationT;
 	typedef MagnetizationPolicy 			MagnetizationT;
-	typedef NeighborPolicy<FieldPolicy>		NeighborT;
+	// typedef NeighborPolicy<FieldPolicy>		NeighborT;
 	typedef PMLPolicy						PMLT;
 	typedef SourcePolicy 					SourceT;
 

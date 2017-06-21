@@ -20,6 +20,12 @@ struct YeeFields{
 
 	static_assert(std::is_base_of<EMMode, Mode>::value, "Mode must be of a predefined type");
 
+	constexpr YeeFields(){
+		D.fill(0.0); E.fill(0.0);
+		B.fill(0.0); H.fill(0.0);
+	}
+
+
 	ContainerT<FieldType, NumE>		D;
 	ContainerT<FieldType, NumH>		B;
 	ContainerT<FieldType, NumE>		E;

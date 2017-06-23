@@ -180,7 +180,7 @@ struct UpdateSurfaceChargeDensity<ThreeD>{
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
-		f.rho() = 1.0/dx*(f.Ex() + f.Ey() + f.Ez() - f.getNeighborMin(0).Ex() - f.getNeighborMin(1).Ey() - f.getNeighborMin(2).Ez());
+		f.rho() = fdtd::eps0/dx*(f.Ex() + f.Ey() + f.Ez() - f.getNeighborMin(0).Ex() - f.getNeighborMin(1).Ey() - f.getNeighborMin(2).Ez());
 	}
 };
 
@@ -192,7 +192,7 @@ struct UpdateSurfaceChargeDensity<TE>{
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
-		f.rho() = 1.0/dx*(f.Ex() + f.Ey() - f.getNeighborMin(0).Ex() - f.getNeighborMin(1).Ey());
+		f.rho() = fdtd::eps0/dx*(f.Ex() + f.Ey() - f.getNeighborMin(0).Ex() - f.getNeighborMin(1).Ey());
 	}
 };
 

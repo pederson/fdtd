@@ -7,5 +7,6 @@
 #include "include/FDTDConstants.hpp"
 #include "include/DispersiveMaterials.hpp"
 #include "include/PML.hpp"
+#include "include/SurfaceQuantities.hpp"
 
 #endif

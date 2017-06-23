@@ -445,6 +445,11 @@ struct PMLIx<ThreeD>{
 	double HIxy;
 	double HIxz;
 
+
+	PMLIx<ThreeD>()
+	: EIxx(0.0), EIxy(0.0), EIxz(0.0)
+	, HIxx(0.0), HIxy(0.0), HIxz(0.0) {};
+
 	// accessors
 	double & pmlEIxx() {return EIxx;};
 	double & pmlEIxy() {return EIxy;};
@@ -465,6 +470,10 @@ struct PMLIx<TE>{
 	// H convolution terms
 	double HIxz;
 
+	PMLIx<TE>()
+	: EIxx(0.0), EIxy(0.0)
+	, HIxz(0.0) {};
+
 	// accessors
 	double & pmlEIxx() {return EIxx;};
 	double & pmlEIxy() {return EIxy;};
@@ -482,6 +491,10 @@ struct PMLIx<TM>{
 	double HIxx;
 	double HIxy;
 
+	PMLIx<TM>()
+	: EIxz(0.0)
+	, HIxx(0.0), HIxy(0.0) {};
+
 	// accessors
 	double & pmlEIxz() {return EIxz;};
 	double & pmlHIxx() {return HIxx;};
@@ -496,6 +509,10 @@ struct PMLIx<TEM>{
 
 	// H convolution terms
 	double HIxy;
+
+	PMLIx<TEM>()
+	: EIxz(0.0)
+	, HIxy(0.0) {};
 
 	// accessors
 	double & pmlEIxz() {return EIxz;};
@@ -530,7 +547,8 @@ struct StoredPMLx : public PMLIx<Mode>{
 
 
 	StoredPMLx()
-	: EKx(1.0), ESx(0.0), EAx(0.0)
+	: PMLIx<Mode>()
+	, EKx(1.0), ESx(0.0), EAx(0.0)
 	, EBx(1.0), ECx(0.0)
 	, HKx(1.0), HSx(0.0), HAx(0.0)
 	, HBx(1.0), HCx(0.0) {};
@@ -604,6 +622,10 @@ struct PMLIy<ThreeD>{
 	double HIyy;
 	double HIyz;
 
+	PMLIy<ThreeD>()
+	: EIyx(0.0), EIyy(0.0), EIyz(0.0)
+	, HIyx(0.0), HIyy(0.0), HIyz(0.0) {};
+
 	// accessors
 	double & pmlEIyx() {return EIyx;};
 	double & pmlEIyy() {return EIyy;};
@@ -624,6 +646,10 @@ struct PMLIy<TE>{
 	// H convolution terms
 	double HIyz;
 
+	PMLIy<TE>()
+	: EIyx(0.0), EIyy(0.0)
+	, HIyz(0.0) {};
+
 	// accessors
 	double & pmlEIyx() {return EIyx;};
 	double & pmlEIyy() {return EIyy;};
@@ -642,6 +668,10 @@ struct PMLIy<TM>{
 	double HIyx;
 	double HIyy;
 
+	PMLIy<TM>()
+	: EIyz(0.0)
+	, HIyx(0.0), HIyy(0.0) {};
+
 	// accessors
 	double & pmlEIyz() {return EIyz;};
 	double & pmlHIyx() {return HIyx;};
@@ -658,6 +688,10 @@ struct PMLIy<TEM>{
 
 	// H convolution terms
 	double HIyy;
+
+	PMLIy<TEM>()
+	: EIyz(0.0)
+	, HIyy(0.0) {};
 
 	// accessors
 	double & pmlEIyz() {return EIyz;};
@@ -692,7 +726,8 @@ struct StoredPMLy : public PMLIy<Mode>{
 
 
 	StoredPMLy()
-	: EKy(1.0), ESy(0.0), EAy(0.0)
+	: PMLIy<Mode>()
+	, EKy(1.0), ESy(0.0), EAy(0.0)
 	, EBy(1.0), ECy(0.0)
 	, HKy(1.0), HSy(0.0), HAy(0.0)
 	, HBy(1.0), HCy(0.0) {};
@@ -773,6 +808,10 @@ struct PMLIz<ThreeD>{
 	double HIzy;
 	double HIzz;
 
+	PMLIz<ThreeD>()
+	: EIzx(0.0), EIzy(0.0), EIzz(0.0)
+	, HIzx(0.0), HIzy(0.0), HIzz(0.0) {};
+
 	// accessors
 	double & pmlEIzx() {return EIzx;};
 	double & pmlEIzy() {return EIzy;};
@@ -792,6 +831,10 @@ struct PMLIz<TE>{
 	// H convolution terms
 	double HIzz;
 
+	PMLIz<TE>()
+	: EIzx(0.0), EIzy(0.0)
+	, HIzz(0.0) {};
+
 	// accessors
 	double & pmlEIzx() {return EIzx;};
 	double & pmlEIzy() {return EIzy;};
@@ -807,6 +850,10 @@ struct PMLIz<TM>{
 	// H convolution terms
 	double HIzx;
 	double HIzy;
+
+	PMLIz<TM>()
+	: EIzz(0.0)
+	, HIzx(0.0), HIzy(0.0) {};
 
 	// accessors
 	double & pmlEIzz() {return EIzz;};
@@ -824,6 +871,10 @@ struct PMLIz<TEM>{
 
 	// H convolution terms
 	double HIzy;
+
+	PMLIz<TEM>()
+	: EIzz(0.0)
+	, HIzy(0.0) {};
 
 	// accessors
 	double & pmlEIzz() {return EIzz;};
@@ -858,7 +909,8 @@ struct StoredPMLz : public PMLIz<Mode>{
 
 
 	StoredPMLz()
-	: EKz(1.0), ESz(0.0), EAz(0.0)
+	: PMLIz<Mode>()
+	, EKz(1.0), ESz(0.0), EAz(0.0)
 	, EBz(1.0), ECz(0.0)
 	, HKz(1.0), HSz(0.0), HAz(0.0)
 	, HBz(1.0), HCz(0.0) {};

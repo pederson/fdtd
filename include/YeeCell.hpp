@@ -6,9 +6,8 @@
 namespace fdtd{
 
 
-struct NoSource{
-
-};
+struct NoSource{};
+struct NoSurfaceQuantities{};
 
 
 // PML model has dispersion X_v = K_v*E + S_v/(jW + A_v)
@@ -51,62 +50,6 @@ struct NoPML{
 };
 
 
-template<class EMFields, std::size_t dim>
-class StoredNeighbors{
-public:
-	static_assert(dim <= 3, "Neighbors can only have up to 3 dimensions");
-
-	// run-time functions
-	const EMFields & getNeighborMax(std::size_t d) const {return *(mNeighbHi[d]);};
-	const EMFields & getNeighborMin(std::size_t d) const {return *(mNeighbLo[d]);};
-	void setNeighborMax(std::size_t d, const EMFields & f){mNeighbHi[d]=&f;};
-	void setNeighborMin(std::size_t d, const EMFields & f){mNeighbLo[d]=&f;};
-
-	// compile-time functions
-	template<std::size_t d>
-	const EMFields & getNeighborMax() const {return *std::get<d>(mNeighbHi);};
-	template<std::size_t d>
-	const EMFields & getNeighborMin() const {return *std::get<d>(mNeighbLo);};
-	template<std::size_t d>
-	void setNeighborMax(const EMFields & f){std::get<d>(mNeighbHi) = &f;};
-	template<std::size_t d>
-	void setNeighborMin(const EMFields & f){std::get<d>(mNeighbLo) = &f;};
-
-	// convenience accessors
-	const EMFields & xMin() const {return std::get<0>(mNeighbLo);};
-	const EMFields & xMax() const {return std::get<0>(mNeighbHi);};
-	const EMFields & yMin() const {return std::get<1>(mNeighbLo);};
-	const EMFields & yMax() const {return std::get<1>(mNeighbHi);};
-	const EMFields & zMin() const {return std::get<2>(mNeighbLo);};
-	const EMFields & zMax() const {return std::get<2>(mNeighbHi);};
-
-protected:
-	std::array<const EMFields *, dim>			mNeighbHi;
-	std::array<const EMFields *, dim>			mNeighbLo;
-};
-
-
-
-
-
-
-template<class C> 
-struct Neighbor1Typedef{typedef StoredNeighbors<C,1> type;};
-template<class C>
-using Neighbor1 = typename Neighbor1Typedef<C>::type;
-
-template<class C> 
-struct Neighbor2Typedef{typedef StoredNeighbors<C,2> type;};
-template<class C>
-using Neighbor2 = typename Neighbor2Typedef<C>::type;
-
-template<class C> 
-struct Neighbor3Typedef{typedef StoredNeighbors<C,3> type;};
-template<class C>
-using Neighbor3 = typename Neighbor3Typedef<C>::type;
-
-
-
 
 
 /** @class YeeCell
@@ -131,20 +74,22 @@ template <class FieldPolicy,
 		  class PolarizationPolicy,
 		  class MagnetizationPolicy,
 		  class PMLPolicy = NoPML,
-		  class SourcePolicy = NoSource>
+		  class SourcePolicy = NoSource,
+		  class SurfaceQuantityPolicy = NoSurfaceQuantities>
 class YeeCell : public FieldPolicy,
 				public PolarizationPolicy,
 				public MagnetizationPolicy,
 				public PMLPolicy,
-				public SourcePolicy 
+				public SourcePolicy,
+				public SurfaceQuantityPolicy 
 {
 public:
 	typedef FieldPolicy		 				FieldT;
 	typedef PolarizationPolicy 				PolarizationT;
 	typedef MagnetizationPolicy 			MagnetizationT;
-	// typedef NeighborPolicy<FieldPolicy>		NeighborT;
 	typedef PMLPolicy						PMLT;
 	typedef SourcePolicy 					SourceT;
+	typedef SurfaceQuantityPolicy 			SurfaceQuantityT;
 
 };
 

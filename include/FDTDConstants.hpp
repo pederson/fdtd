@@ -51,6 +51,24 @@ struct ThreeD : public EMMode{static const std::size_t dim=3;};
 
 
 
+struct Field{};
+struct Ex : public Field{};
+struct Ey : public Field{};
+struct Ez : public Field{};
+struct Dx : public Field{};
+struct Dy : public Field{};
+struct Dz : public Field{};
+struct Hx : public Field{};
+struct Hy : public Field{};
+struct Hz : public Field{};
+struct Bx : public Field{};
+struct By : public Field{};
+struct Bz : public Field{};
+
+
+
+
+
 }// end namespace fdtd
 
 #endif

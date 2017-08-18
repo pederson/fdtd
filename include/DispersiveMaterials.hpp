@@ -8,6 +8,7 @@ namespace fdtd{
 
 
 struct VacuumPolarization{
+	constexpr double permittivity_r() const {return 1.0;};
 	constexpr double Px() const {return 0;};
 	constexpr double Py() const {return 0;};
 	constexpr double Pz() const {return 0;};
@@ -15,6 +16,7 @@ struct VacuumPolarization{
 
 
 struct VacuumMagnetization{
+	constexpr double permeability_r() const {return 1.0;};
 	constexpr double Mx() const {return 0;};
 	constexpr double My() const {return 0;};
 	constexpr double Mz() const {return 0;};
@@ -30,6 +32,53 @@ struct VacuumMagnetization{
 //************************************************************
 
 
+
+struct SinglePolarization{
+	double mPx, mPy, mPz, mPermittivityR;
+
+	SinglePolarization()
+	: mPermittivityR(1.0)
+	, mPx(0.0), mPy(0.0), mPz(0.0) {}
+
+	const double & permittivity_r() const {return mPermittivityR;};
+	const double & Px() const {return mPx;};
+	const double & Py() const {return mPy;};
+	const double & Pz() const {return mPz;};
+
+
+	double & permittivity_r() {return mPermittivityR;}
+	double & Px() {return mPx;};
+	double & Py() {return mPy;};
+	double & Pz() {return mPz;};
+};
+
+
+struct SingleMagnetization{
+	double mMx, mMy, mMz, mPermeabilityR;
+
+	SingleMagnetization()
+	: mPermeabilityR(1.0)
+	, mMx(0.0), mMy(0.0), mMz(0.0) {}
+
+	const double & permeability_r() const {return mPermeabilityR;};
+	const double & Mx() const {return mMx;};
+	const double & My() const {return mMy;};
+	const double & Mz() const {return mMz;};
+
+	double & permeability_r() {return mPermeabilityR;}
+	double & Mx() {return mMx;};
+	double & My() {return mMy;};
+	double & Mz() {return mMz;};
+};
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 

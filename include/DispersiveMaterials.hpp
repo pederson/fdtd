@@ -38,7 +38,7 @@ struct SinglePolarization{
 
 	SinglePolarization()
 	: mPermittivityR(1.0)
-	, mPx(0.0), mPy(0.0), mPz(0.0) {}
+	, mPx(0.0), mPy(0.0), mPz(0.0) {};
 
 	const double & permittivity_r() const {return mPermittivityR;};
 	const double & Px() const {return mPx;};
@@ -58,7 +58,7 @@ struct SingleMagnetization{
 
 	SingleMagnetization()
 	: mPermeabilityR(1.0)
-	, mMx(0.0), mMy(0.0), mMz(0.0) {}
+	, mMx(0.0), mMy(0.0), mMz(0.0) {};
 
 	const double & permeability_r() const {return mPermeabilityR;};
 	const double & Mx() const {return mMx;};
@@ -86,6 +86,10 @@ template <class FieldType>
 inline void ConstantUpdate(FieldType & Out, const FieldType & In, double c){Out=In/c;}
 
 
+template <class FieldType>
+inline void ConstantCalculate(FieldType & Out, const FieldType & In, double c){Out=In*c;}
+
+
 template <class Mode>
 struct ConstantUpdateE{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
@@ -105,6 +109,14 @@ struct ConstantUpdateE<ThreeD>{
 		ConstantUpdate(f.Ey(), f.Dy(), eps);
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
 	};
+
+
+	template<class YeeCell>
+	void calculate(YeeCell & f){
+		ConstantCalculate(f.Dx(), f.Ex(), eps);
+		ConstantCalculate(f.Dy(), f.Ey(), eps);
+		ConstantCalculate(f.Dz(), f.Ez(), eps);
+	};
 };
 
 // specialization for TE
@@ -118,6 +130,13 @@ struct ConstantUpdateE<TE>{
 	void operator()(YeeCell & f){
 		ConstantUpdate(f.Ex(), f.Dx(), eps);
 		ConstantUpdate(f.Ey(), f.Dy(), eps);
+	};
+
+
+	template<class YeeCell>
+	void calculate(YeeCell & f){
+		ConstantCalculate(f.Dx(), f.Ex(), eps);
+		ConstantCalculate(f.Dy(), f.Ey(), eps);
 	};
 };
 
@@ -133,6 +152,11 @@ struct ConstantUpdateE<TM>{
 	void operator()(YeeCell & f){
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
 	};
+
+	template<class YeeCell>
+	void calculate(YeeCell & f){
+		ConstantCalculate(f.Dz(), f.Ez(), eps);
+	};
 };
 
 // specialization for TEM
@@ -145,6 +169,11 @@ struct ConstantUpdateE<TEM>{
 	template<class YeeCell>
 	void operator()(YeeCell & f){
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
+	};
+
+	template<class YeeCell>
+	void calculate(YeeCell & f){
+		ConstantCalculate(f.Dz(), f.Ez(), eps);
 	};
 };
 
@@ -237,175 +266,6 @@ struct ConstantUpdateH<TEM>{
 		ConstantUpdate(f.Hy(), f.By(), mu);
 	};
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// struct Vacuum{};
-// struct PEC{};
-// struct PMC{};
-
-// struct OwnedConstant{
-// 	double val;
-// 	constexpr OwnedConstant(): val(1.0) {};
-// 	constexpr OwnedConstant(double c): val(c) {};
-// 	constexpr double getConstant() const {return val;};
-// 	void setConstant(double c) {val=c;};
-// };
-
-// template <class ParameterPolicy = OwnedConstant>
-// struct ConstantUpdate : public ParameterPolicy{
-// 	template <typename FieldType>
-// 	void update(FieldType & Out, const FieldType & In, double dt){
-// 		Out = In/getConstant();
-// 	};
-// };
-
-// // template <typename FieldType,
-// // 		  class ParameterPolicy,
-// // 		  template <class> class UpdatePolicy>
-// // struct ElementalDispersion : public UpdatePolicy<FieldType>, public ParameterPolicy{
-
-// // };
-
-
-
-// struct NullUpdate{
-// 	template <typename FieldType>
-// 	void update(FieldType & Out, const FieldType & In, double dt){};
-// };
-
-
-
-// template <class Pxx, class Pxy, class Pxz,
-// 				  , class Pyy, class Pyz,
-// 				  			 , class Pzz>
-// struct GeneralLinearDispersion : public Pxx, public Pxy, public Pxz,
-// 											   public Pyy, public Pyz,
-// 											 			   public Pzz
-// {
-
-// };
-
-
-// template <class Pxx, class Pyy, class Pzz> 
-// struct GeneralDiagonalDispersion GeneralLinearDispersion<Pxx, void, void,
-// 														  Pyy		, void,
-// 																	, Pzz>;
-
-
-// template <class Pxx> 
-// struct GeneralIsotropicDispersion GeneralDiagonalDispersion<Pxx, Pxx, Pxx>;
-
-
-// template <class ElementalDispersion>
-// struct IsotropicDipsersion{
-// 	ElementalDispersion			mDisp;
-
-// 	template <typename FieldType>
-// 	void update(double dt, double dx, std::pair<FieldType, FieldType>... fields){
-
-// 	};
-// };
-
-
-// template <class Mode>
-// struct VacuumMaterialModel{
-// 	static Mode m;
-
-
-// 	// implementation for 3D
-// 	template <typename M>
-// 	void updateE(double dt, double dx, EMFields & f, typename std::enable_if<std::is_same<M, ThreeD>::value>::type=m){
-// 		f.Ex() = f.Dx()/eps0;
-// 		f.Ey() = f.Dy()/eps0;
-// 		f.Ez() = f.Dz()/eps0;
-// 	};
-
-
-// 	// implementation for 3D
-// 	template <typename M>
-// 	void updateH(double dt, double dx, EMFields & f, typename std::enable_if<std::is_same<M, ThreeD>::value>::type=m){
-// 		f.Hx() = f.Bx()/mu0;
-// 		f.Hy() = f.By()/mu0;
-// 		f.Hz() = f.Bz()/mu0;
-// 	}
-// };
-
-// template<class EMFields>
-// class LinearMaterialUpdater{
-// public:
-// 	void updateE(EMFields & f, double dt, double dx){
-
-// 	};
-
-// protected:
-// 	LinearDispersion		mDispE;
-// 	LinearDispersion		mDispH;
-// };
-
-
-// class VacuumDispersion{};
-
-// class PECDispersion{};
-// class PMCDispersion{};
-
-
-// template<> void YeeCellTM<VacuumDispersion, VacuumDispersion>::update_E(double dt){
-// 	fields.E[2] = fields.D[2]/eps0;
-// }
-// template<> void YeeCellTM<VacuumDispersion, VacuumDispersion>::update_H(double dt){
-// 	fields.H[0] = fields.B[0]/mu0;
-// 	fields.H[1] = fields.B[1]/mu0;
-// }
-
-// template<> void YeeCellTM<PECDispersion, VacuumDispersion>::update_E(double dt){
-// 	// fields.E[0] = 0.0;
-// 	// fields.E[1] = 0.0;
-// 	fields.E[2] = 0.0;
-// }
-
-// template<> void YeeCellTM<PECDispersion, VacuumDispersion>::update_H(double dt){
-// 	fields.H[0] = fields.B[0];
-// 	fields.H[1] = fields.B[1];
-// }
-
-
-// class ConstantDispersion{
-// public:
-// 	double val;
-
-// 	ConstantDispersion() 
-// 	: val(1.0) {};
-
-// 	ConstantDispersion(double v)
-// 	: val(v) {};
-
-// 	void update(std::array<double, 3> & E, std::array<double, 3> & D, double c, double dt){
-// 		for (auto i=0; i<3; i++) E[i] = D[i]/(c*val);
-// 	}
-// };
 
 
 

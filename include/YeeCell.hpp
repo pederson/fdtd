@@ -8,6 +8,7 @@ namespace fdtd{
 
 struct NoSource{};
 struct NoSurfaceQuantities{};
+struct NoExtra{};
 
 
 // PML model has dispersion X_v = K_v*E + S_v/(jW + A_v)
@@ -75,13 +76,15 @@ template <class FieldPolicy,
 		  class MagnetizationPolicy,
 		  class PMLPolicy = NoPML,
 		  class SourcePolicy = NoSource,
-		  class SurfaceQuantityPolicy = NoSurfaceQuantities>
+		  class SurfaceQuantityPolicy = NoSurfaceQuantities,
+		  class ExtraFields = NoExtra>
 class YeeCell : public FieldPolicy,
 				public PolarizationPolicy,
 				public MagnetizationPolicy,
 				public PMLPolicy,
 				public SourcePolicy,
-				public SurfaceQuantityPolicy 
+				public SurfaceQuantityPolicy,
+				public ExtraFields 
 {
 public:
 	typedef FieldPolicy		 				FieldT;
@@ -90,7 +93,7 @@ public:
 	typedef PMLPolicy						PMLT;
 	typedef SourcePolicy 					SourceT;
 	typedef SurfaceQuantityPolicy 			SurfaceQuantityT;
-
+	typedef ExtraFields						ExtraFieldT;
 };
 
 

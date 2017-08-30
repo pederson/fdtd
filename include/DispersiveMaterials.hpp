@@ -269,6 +269,115 @@ struct ConstantUpdateH<TEM>{
 
 
 
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+template <class Mode>
+struct ConductiveUpdateE{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+};
+
+
+// specialization for 3D
+template<>
+struct ConductiveUpdateE<ThreeD>{
+	double eps_r;
+	double w0;
+	double dt;
+
+	double factor;
+
+	ConductiveUpdateE<ThreeD>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
+		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
+		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
+		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+// specialization for TE
+template<>
+struct ConductiveUpdateE<TE>{
+	double eps_r;
+	double w0;
+	double dt;
+
+	double factor;
+
+	ConductiveUpdateE<TE>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
+		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
+		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
+	};
+
+};
+
+
+// specialization for TM
+template<>
+struct ConductiveUpdateE<TM>{
+	double eps_r;
+	double w0;
+	double dt;
+
+	double factor;
+
+	ConductiveUpdateE<TM>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+// specialization for TEM
+template<>
+struct ConductiveUpdateE<TEM>{
+	double eps_r;
+	double w0;
+	double dt;
+
+	double factor;
+
+	ConductiveUpdateE<TEM>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+
+
+
 }// end namespace fdtd
 
 #endif

@@ -6,6 +6,198 @@
 namespace fdtd{
 
 
+// Define difference operators on YeeCell objects
+// which will be used to construct the YeeAlgorithm for
+// any given mode
+
+template <typename EMField, Dir d>
+struct DifferenceOperator{
+	static_assert(std::is_same<Field, EMField>::value, "DifferenceOperator needs a valid EMField");
+};
+
+
+////////////// E //////////////
+
+template <>
+struct DifferenceOperator<fdtd::Ex, Dir::Y>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(1).Ex() - f.Ex();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Ex, Dir::Z>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(2).Ex() - f.Ex();
+	}
+};
+
+
+template <>
+struct DifferenceOperator<fdtd::Ey, Dir::X>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(0).Ey() - f.Ey();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Ey, Dir::Z>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(2).Ey() - f.Ey();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Ez, Dir::X>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(0).Ez() - f.Ez();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Ez, Dir::Y>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.getNeighborMax(1).Ez() - f.Ez();
+	}
+};
+
+
+
+
+
+//////////////// H ////////////////
+
+
+template <>
+struct DifferenceOperator<fdtd::Hx, Dir::Y>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hx() - f.getNeighborMin(1).Hx();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Hx, Dir::Z>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hx() - f.getNeighborMin(2).Hx();
+	}
+};
+
+
+template <>
+struct DifferenceOperator<fdtd::Hy, Dir::X>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hy() - f.getNeighborMin(0).Hy();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Hy, Dir::Z>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hy() - f.getNeighborMin(2).Hy();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Hz, Dir::X>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hz() - f.getNeighborMin(0).Hz();
+	}
+};
+
+template <>
+struct DifferenceOperator<fdtd::Hz, Dir::Y>{
+	template <class YeeCell>
+	static double get(YeeCell & f) {
+		return f.Hz() - f.getNeighborMin(1).Hz();
+	}
+};
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+// Define the PML coefficient depending on whether the user 
+// wants to include it or not
+template <bool pml_option>
+struct PMLCoeff{
+};
+
+template<>
+struct PMLCoeff<true>{
+	template <class YeeCell>
+	static double pmlEKx(YeeCell & f) {return f.pmlEKx();};
+
+	template <class YeeCell>
+	static double pmlEKy(YeeCell & f) {return f.pmlEKy();};
+
+	template <class YeeCell>
+	static double pmlEKz(YeeCell & f) {return f.pmlEKz();};
+
+
+	template <class YeeCell>
+	static double pmlHKx(YeeCell & f) {return f.pmlHKx();};
+
+	template <class YeeCell>
+	static double pmlHKy(YeeCell & f) {return f.pmlHKy();};
+
+	template <class YeeCell>
+	static double pmlHKz(YeeCell & f) {return f.pmlHKz();};
+};
+
+
+
+template<>
+struct PMLCoeff<false>{
+	template <class YeeCell>
+	static double pmlEKx(YeeCell & f) {return 1.0;};
+
+	template <class YeeCell>
+	static double pmlEKy(YeeCell & f) {return 1.0;};
+
+	template <class YeeCell>
+	static double pmlEKz(YeeCell & f) {return 1.0;};
+
+
+	template <class YeeCell>
+	static double pmlHKx(YeeCell & f) {return 1.0;};
+
+	template <class YeeCell>
+	static double pmlHKy(YeeCell & f) {return 1.0;};
+
+	template <class YeeCell>
+	static double pmlHKz(YeeCell & f) {return 1.0;};
+};
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
 
 
 template <class Mode>
@@ -91,7 +283,9 @@ struct YeeUpdateD<TM>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dz() += dt/dx*(1.0/f.pmlEKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlEKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
+		f.Dz() += dt/dx*(1.0/f.pmlEKx()*DifferenceOperator<Hy, Dir::X>::get(f)
+					   - 1.0/f.pmlEKy()*DifferenceOperator<Hx, Dir::Y>::get(f));
+		// f.Dz() += dt/dx*(1.0/f.pmlEKx()*(f.Hy() - f.getNeighborMin(0).Hy()) - 1.0/f.pmlEKy()*(f.Hx() - f.getNeighborMin(1).Hx()));
 	};
 };
 

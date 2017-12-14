@@ -67,6 +67,12 @@ struct Bz : public Field{};
 
 
 
+enum class Dir : char{
+	X = 1,
+	Y,
+	Z
+};
+
 
 
 }// end namespace fdtd

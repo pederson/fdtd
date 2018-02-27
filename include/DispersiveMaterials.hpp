@@ -52,6 +52,24 @@ struct SinglePolarization{
 	double & Pz() {return mPz;};
 };
 
+struct DoublePolarization : public SinglePolarization{
+	double mJx, mJy, mJz;
+
+	DoublePolarization()
+	: SinglePolarization(), mJx(0.0), mJy(0.0), mJz(0.0) {};
+
+
+	const double & Jx() const {return mJx;};
+	const double & Jy() const {return mJy;};
+	const double & Jz() const {return mJz;};
+
+
+	double & permittivity_r() {return mPermittivityR;}
+	double & Jx() {return mJx;};
+	double & Jy() {return mJy;};
+	double & Jz() {return mJz;};
+};
+
 
 struct SingleMagnetization{
 	double mMx, mMy, mMz, mPermeabilityR;
@@ -69,6 +87,22 @@ struct SingleMagnetization{
 	double & Mx() {return mMx;};
 	double & My() {return mMy;};
 	double & Mz() {return mMz;};
+};
+
+
+struct DoubleMagnetization : public SingleMagnetization{
+	double mKx, mKy, mKz;
+
+	DoubleMagnetization()
+	: mKx(0.0), mKy(0.0), mKz(0.0) {};
+
+	const double & Kx() const {return mKx;};
+	const double & Ky() const {return mKy;};
+	const double & Kz() const {return mKz;};
+
+	double & Kx() {return mKx;};
+	double & Ky() {return mKy;};
+	double & Kz() {return mKz;};
 };
 
 
@@ -376,6 +410,282 @@ struct ConductiveUpdateE<TEM>{
 };
 
 
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+template <class Mode, 
+			class StaticValue,
+			class Delta, 
+			class LorentzFreq,
+			class Gamma>
+struct LorentzUpdateParametrized{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+};
+
+
+// specialization for 3D
+template<class StaticValue,
+			class Delta, 
+			class LorentzFreq,
+			class Gamma>
+struct LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>{
+	double eps_r;
+	double dt;
+
+
+
+	LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = 2.0*Gamma::get(f)*dt;
+		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
+
+		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
+		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
+
+		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
+		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
+		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+
+// specialization for TM
+template<class StaticValue,
+			class Delta, 
+			class LorentzFreq,
+			class Gamma>
+struct LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>{
+	double eps_r;
+	double dt;
+
+
+
+	LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = 2.0*Gamma::get(f)*dt;
+		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
+
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+
+// specialization for TE
+template<class StaticValue,
+			class Delta, 
+			class LorentzFreq,
+			class Gamma>
+struct LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>{
+	double eps_r;
+	double dt;
+
+
+
+	LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = 2.0*Gamma::get(f)*dt;
+		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
+
+		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
+		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
+
+		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
+		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
+		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
+	};
+
+};
+
+
+// specialization for 1D TEM
+template<class StaticValue,
+			class Delta, 
+			class LorentzFreq,
+			class Gamma>
+struct LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>{
+	double eps_r;
+	double dt;
+
+
+
+	LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = 2.0*Gamma::get(f)*dt;
+		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
+	};
+
+};
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+template <class Mode, 
+			class StaticValue,
+			class DrudeFreq,
+			class Gamma>
+struct DrudeUpdateParametrized{
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+};
+
+
+// specialization for 3D
+template<class StaticValue,
+			class DrudeFreq,
+			class Gamma>
+struct DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>{
+	double dt;
+
+
+
+	DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = Gamma::get(f)*dt;
+		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
+
+		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
+		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
+
+		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
+		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
+		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
+	};
+
+};
+
+
+// specialization for TM
+template<class StaticValue,
+			class DrudeFreq,
+			class Gamma>
+struct DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>{
+	double dt;
+
+
+
+	DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = Gamma::get(f)*dt;
+		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
+
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
+	};
+
+};
+
+
+// specialization for TE
+template<class StaticValue,
+			class DrudeFreq,
+			class Gamma>
+struct DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma>{
+	double dt;
+
+
+
+	DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = Gamma::get(f)*dt;
+		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
+
+		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
+		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
+
+		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
+		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
+
+		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
+		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
+	};
+
+};
+
+
+// specialization for 1D TEM
+template<class StaticValue,
+			class DrudeFreq,
+			class Gamma>
+struct DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>{
+	double dt;
+
+
+
+	DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double b = Gamma::get(f)*dt;
+		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
+
+		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
+		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+
+		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
+	};
+
+};
 
 
 }// end namespace fdtd

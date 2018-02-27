@@ -625,8 +625,15 @@ struct DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>{
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
 
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+		// std::cout << "Static: " << StaticValue::get(f) << std::endl;
+		// std::cout << "Freq: " << DrudeFreq::get(f) << std::endl;
+		// std::cout << "Gamma: " << Gamma::get(f) << std::endl;
+		// std::cout << "b: " << b << " c: " << c << std::endl;
+		// throw -1;
+
+		double Pzhold = f.Pz();
+		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
+		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
 
 		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
 	};

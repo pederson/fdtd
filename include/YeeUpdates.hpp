@@ -354,7 +354,7 @@ struct PlainYeeUpdateD<TE>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dx() += dt/dx*( (f.Hz() - f.getNeighborMin(1).Hz()) - (f.Hy() - f.getNeighborMin(2).Hy()));
+		f.Dx() += dt/dx*( (f.Hz() - f.getNeighborMin(1).Hz()));
 		f.Dy() += dt/dx*(-(f.Hz() - f.getNeighborMin(0).Hz()));
 	};
 };

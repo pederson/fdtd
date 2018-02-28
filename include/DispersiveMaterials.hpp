@@ -591,18 +591,20 @@ struct DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
-		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
-
-		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
-		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
-
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+		double Pxhold = f.Px();
+		f.Px() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Px()) + dt*(f.Jx()+c*f.Dx()));
+		f.Jx() = 1.0/(1.0+b+dt*c)*(-c*(Pxhold) + (f.Jx()+c*f.Dx()));
+		double Pyhold = f.Py();
+		f.Py() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Py()) + dt*(f.Jy()+c*f.Dy()));
+		f.Jy() = 1.0/(1.0+b+dt*c)*(-c*(Pyhold) + (f.Jy()+c*f.Dy()));
+		double Pzhold = f.Pz();
+		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
+		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
 
 		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
 		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
 		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
+
 	};
 
 };
@@ -624,12 +626,6 @@ struct DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-
-		// std::cout << "Static: " << StaticValue::get(f) << std::endl;
-		// std::cout << "Freq: " << DrudeFreq::get(f) << std::endl;
-		// std::cout << "Gamma: " << Gamma::get(f) << std::endl;
-		// std::cout << "b: " << b << " c: " << c << std::endl;
-		// throw -1;
 
 		double Pzhold = f.Pz();
 		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
@@ -657,11 +653,12 @@ struct DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
-		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
-
-		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
-		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
+		double Pxhold = f.Px();
+		f.Px() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Px()) + dt*(f.Jx()+c*f.Dx()));
+		f.Jx() = 1.0/(1.0+b+dt*c)*(-c*(Pxhold) + (f.Jx()+c*f.Dx()));
+		double Pyhold = f.Py();
+		f.Py() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Py()) + dt*(f.Jy()+c*f.Dy()));
+		f.Jy() = 1.0/(1.0+b+dt*c)*(-c*(Pyhold) + (f.Jy()+c*f.Dy()));
 
 		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
 		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
@@ -686,8 +683,9 @@ struct DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
+		double Pzhold = f.Pz();
+		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
+		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
 
 		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
 	};

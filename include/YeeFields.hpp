@@ -14,13 +14,13 @@ template<typename Mode,
 		 std::size_t NumE,
 		 std::size_t NumH,
 		 template<class, std::size_t> class ContainerT>
-struct YeeFields{
+struct YeeFieldData{
 	typedef FieldType type;
 	typedef Mode mode;
 
 	static_assert(std::is_base_of<EMMode, Mode>::value, "Mode must be of a predefined type");
 
-	constexpr YeeFields(){
+	constexpr YeeFieldData(){
 		D.fill(0.0); E.fill(0.0);
 		B.fill(0.0); H.fill(0.0);
 	}
@@ -34,11 +34,15 @@ struct YeeFields{
 };
 
 
+template<typename Mode, typename FieldType, template <class,std::size_t> class ContainerT>
+struct YeeFields: public YeeFieldData<Mode, FieldType, Mode::numE, Mode::numH, ContainerT>{
+	typedef YeeFieldData<Mode, FieldType, Mode::numE, Mode::numH, ContainerT> BaseT;
+};
 
 template<typename FieldType, template <class,std::size_t> class ContainerT>
-struct YeeFields3D: public YeeFields<ThreeD, FieldType, 3, 3, ContainerT>{
-	typedef YeeFields<ThreeD, FieldType, 3, 3, ContainerT> BaseT;
-	
+struct YeeFields<ThreeD, FieldType, ContainerT>: public YeeFieldData<ThreeD, FieldType, ThreeD::numE, ThreeD::numH, ContainerT>{
+	typedef YeeFieldData<ThreeD, FieldType, ThreeD::numE, ThreeD::numH, ContainerT> BaseT;
+
 	FieldType & Ex() {return std::get<0>(BaseT::E);};
 	FieldType & Ey() {return std::get<1>(BaseT::E);};
 	FieldType & Ez() {return std::get<2>(BaseT::E);};
@@ -72,14 +76,15 @@ struct YeeFields3D: public YeeFields<ThreeD, FieldType, 3, 3, ContainerT>{
 	const FieldType & Bx() const {return std::get<0>(BaseT::B);};
 	const FieldType & By() const {return std::get<1>(BaseT::B);};
 	const FieldType & Bz() const {return std::get<2>(BaseT::B);};
+
 };
 
 
 
 template<typename FieldType, template <class,std::size_t> class ContainerT>
-struct YeeFieldsTE: public YeeFields<TE, FieldType, 2, 1, ContainerT>{
-	typedef YeeFields<TE, FieldType, 2, 1, ContainerT> BaseT;
-	
+struct YeeFields<TE, FieldType, ContainerT>: public YeeFieldData<TE, FieldType, TE::numE, TE::numH, ContainerT>{
+	typedef YeeFieldData<TE, FieldType, TE::numE, TE::numH, ContainerT> BaseT;
+
 	FieldType & Ex() {return std::get<0>(BaseT::E);};
 	FieldType & Ey() {return std::get<1>(BaseT::E);};
 
@@ -100,14 +105,15 @@ struct YeeFieldsTE: public YeeFields<TE, FieldType, 2, 1, ContainerT>{
 	const FieldType & Hz() const {return std::get<0>(BaseT::H);};
 
 	const FieldType & Bz() const {return std::get<0>(BaseT::B);};
+
 };
 
 
 
 template<typename FieldType, template <class,std::size_t> class ContainerT>
-struct YeeFieldsTM: public YeeFields<TM, FieldType, 1, 2, ContainerT>{
-	typedef YeeFields<TM, FieldType, 1, 2, ContainerT> BaseT;
-	
+struct YeeFields<TM, FieldType, ContainerT>: public YeeFieldData<TM, FieldType, TM::numE, TM::numH, ContainerT>{
+	typedef YeeFieldData<TM, FieldType, TM::numE, TM::numH, ContainerT> BaseT;
+
 	FieldType & Ez() {return std::get<0>(BaseT::E);};
 
 	FieldType & Dz() {return std::get<0>(BaseT::D);};
@@ -128,14 +134,15 @@ struct YeeFieldsTM: public YeeFields<TM, FieldType, 1, 2, ContainerT>{
 
 	const FieldType & Bx() const {return std::get<0>(BaseT::B);};
 	const FieldType & By() const {return std::get<1>(BaseT::B);};
+
 };
 
 
 
 template<typename FieldType, template <class,std::size_t> class ContainerT>
-struct YeeFieldsTEM: public YeeFields<TEM, FieldType, 1, 1, ContainerT>{
-	typedef YeeFields<TEM, FieldType, 1, 1, ContainerT> BaseT;
-	
+struct YeeFields<TEM, FieldType, ContainerT>: public YeeFieldData<TEM, FieldType, TEM::numE, TEM::numH, ContainerT>{
+	typedef YeeFieldData<TEM, FieldType, TEM::numE, TEM::numH, ContainerT> BaseT;
+
 	FieldType & Ez() {return std::get<0>(BaseT::E);};
 
 	FieldType & Dz() {return std::get<0>(BaseT::D);};
@@ -153,7 +160,10 @@ struct YeeFieldsTEM: public YeeFields<TEM, FieldType, 1, 1, ContainerT>{
 	const FieldType & Hy() const {return std::get<0>(BaseT::H);};
 
 	const FieldType & By() const {return std::get<0>(BaseT::B);};
+
 };
+
+
 
 }// end namespace fdtd
 

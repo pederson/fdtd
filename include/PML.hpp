@@ -47,7 +47,7 @@ public:
 
 
 
-template <class Mode>
+template <class Mode, Dir d = Dir::NONE>
 struct UpdatePMLD{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	
@@ -56,11 +56,11 @@ struct UpdatePMLD{
 
 
 // specialization for 3D
-template<>
-struct UpdatePMLD<ThreeD>{
+template <Dir d>
+struct UpdatePMLD<ThreeD, d>{
 	double dt, dx;
 
-	UpdatePMLD<ThreeD>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLD<ThreeD, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -90,11 +90,11 @@ struct UpdatePMLD<ThreeD>{
 
 
 // specialization for TE
-template<>
-struct UpdatePMLD<TE>{
+template <Dir d>
+struct UpdatePMLD<TE, d>{
 	double dt, dx;
 
-	UpdatePMLD<TE>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLD<TE, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -110,11 +110,11 @@ struct UpdatePMLD<TE>{
 
 
 // specialization for TM
-template<>
-struct UpdatePMLD<TM>{
+template <Dir d>
+struct UpdatePMLD<TM, d>{
 	double dt, dx;
 
-	UpdatePMLD<TM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLD<TM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -131,11 +131,11 @@ struct UpdatePMLD<TM>{
 
 
 // specialization for TEM
-template<>
-struct UpdatePMLD<TEM>{
+template <Dir d>
+struct UpdatePMLD<TEM, d>{
 	double dt, dx;
 
-	UpdatePMLD<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLD<TEM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -146,6 +146,192 @@ struct UpdatePMLD<TEM>{
 
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+
+// specialization for 3D, directional
+template <>
+struct UpdatePMLD<ThreeD, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLD<ThreeD, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/delx*(f.Hz() - f.getNeighborMin(0).Hz());
+		f.Dy() -= f.pmlHIxz()*delt;
+
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/delx*(f.Hy() - f.getNeighborMin(0).Hy());
+		f.Dz() += f.pmlHIxy()*delt;
+	};
+};
+
+
+
+template <>
+struct UpdatePMLD<ThreeD, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLD<ThreeD, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlHIyz() = f.pmlEBy()*f.pmlHIyz() + f.pmlECy()/delx*(f.Hz() - f.getNeighborMin(1).Hz());	
+		f.Dx() += f.pmlHIyz()*delt;
+
+		f.pmlHIyx() = f.pmlEBy()*f.pmlHIyx() + f.pmlECy()/delx*(f.Hx() - f.getNeighborMin(1).Hx());	
+		f.Dz() -= f.pmlHIyx()*delt;
+	};
+};
+
+
+
+
+template <>
+struct UpdatePMLD<ThreeD, Dir::Z>{
+	double dt, dx;
+
+	UpdatePMLD<ThreeD, Dir::Z>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// z direction
+		f.pmlHIzy() = f.pmlEBz()*f.pmlHIzy() + f.pmlECz()/delx*(f.Hy() - f.getNeighborMin(2).Hy());	
+		f.Dx() -= f.pmlHIzy()*delt;
+
+		f.pmlHIzx() = f.pmlEBz()*f.pmlHIzx() + f.pmlECz()/delx*(f.Hx() - f.getNeighborMin(2).Hx());	
+		f.Dy() += f.pmlHIzx()*delt;
+	};
+};
+
+
+// specialization for TE *AND* direction
+template <>
+struct UpdatePMLD<TE, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLD<TE, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/delx*(f.Hz() - f.getNeighborMin(0).Hz());
+		f.Dy() -= f.pmlHIxz()*delt;
+	};
+};
+
+
+template <>
+struct UpdatePMLD<TE, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLD<TE, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlHIyz() = f.pmlEBy()*f.pmlHIyz() + f.pmlECy()/delx*(f.Hz() - f.getNeighborMin(1).Hz());	
+		f.Dx() += f.pmlHIyz()*delt;
+	};
+};
+
+
+// specialization for TM *AND* direction
+template <>
+struct UpdatePMLD<TM, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLD<TM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/delx*(f.Hy() - f.getNeighborMin(0).Hy());
+		f.Dz() += f.pmlHIxy()*delt;
+	}
+};
+
+// specialization for TM *AND* direction
+template <>
+struct UpdatePMLD<TM, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLD<TM, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlHIyx() = f.pmlEBy()*f.pmlHIyx() + f.pmlECy()/delx*(f.Hx() - f.getNeighborMin(1).Hx());	
+		f.Dz() -= f.pmlHIyx()*delt;
+	}
+};
+
+
+// specialization for TEM
+template <>
+struct UpdatePMLD<TEM, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLD<TEM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/delx*(f.Hy() - f.getNeighborMin(0).Hy());	
+		f.Dz() += f.pmlHIxy()*delt;
+	}
+
+};
+
 
 
 
@@ -158,7 +344,7 @@ struct UpdatePMLD<TEM>{
 
 
 
-template <class Mode>
+template <class Mode, Dir d = Dir::NONE>
 struct UpdatePMLB{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	
@@ -166,11 +352,11 @@ struct UpdatePMLB{
 
 
 // specialization for 3D
-template<>
-struct UpdatePMLB<ThreeD>{
+template <Dir d>
+struct UpdatePMLB<ThreeD, d>{
 	double dt, dx;
 
-	UpdatePMLB<ThreeD>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLB<ThreeD, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -199,11 +385,11 @@ struct UpdatePMLB<ThreeD>{
 
 
 // specialization for TE
-template<>
-struct UpdatePMLB<TE>{
+template <Dir d>
+struct UpdatePMLB<TE, d>{
 	double dt, dx;
 
-	UpdatePMLB<TE>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLB<TE, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -219,11 +405,11 @@ struct UpdatePMLB<TE>{
 
 
 // specialization for TM
-template<>
-struct UpdatePMLB<TM>{
+template <Dir d>
+struct UpdatePMLB<TM, d>{
 	double dt, dx;
 
-	UpdatePMLB<TM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLB<TM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -239,11 +425,11 @@ struct UpdatePMLB<TM>{
 
 
 // specialization for TEM
-template<>
-struct UpdatePMLB<TEM>{
+template <Dir d>
+struct UpdatePMLB<TEM, d>{
 	double dt, dx;
 
-	UpdatePMLB<TEM>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	UpdatePMLB<TEM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
 	void operator()(YeeCell & f){
@@ -254,6 +440,191 @@ struct UpdatePMLB<TEM>{
 
 
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+// specialization for ThreeD *AND* direction
+template <>
+struct UpdatePMLB<ThreeD, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLB<ThreeD, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/delx*(f.getNeighborMax(0).Ez() - f.Ez());
+		f.By() += f.pmlEIxz()*delt;
+
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/delx*(f.getNeighborMax(0).Ey() - f.Ey());
+		f.Bz() -= f.pmlEIxy()*delt;
+	};
+};
+
+
+// specialization for ThreeD *AND* direction
+template <>
+struct UpdatePMLB<ThreeD, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLB<ThreeD, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/delx*(f.getNeighborMax(1).Ez() - f.Ez());	
+		f.Bx() -= f.pmlEIyz()*delt;
+
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/delx*(f.getNeighborMax(1).Ex() - f.Ex());	
+		f.Bz() += f.pmlEIyx()*delt;
+	};
+};
+
+
+// specialization for ThreeD *AND* direction
+template <>
+struct UpdatePMLB<ThreeD, Dir::Z>{
+	double dt, dx;
+
+	UpdatePMLB<ThreeD, Dir::Z>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// z direction
+		f.pmlEIzy() = f.pmlHBz()*f.pmlEIzy() + f.pmlHCz()/delx*(f.getNeighborMax(2).Ey() - f.Ey());	
+		f.Bx() += f.pmlEIzy()*delt;
+
+		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/delx*(f.getNeighborMax(2).Ex() - f.Ex());	
+		f.By() -= f.pmlHIzx()*delt;
+	};
+};
+
+
+
+// specialization for TM *AND* direction
+template <>
+struct UpdatePMLB<TE, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLB<TE, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlEIxy() = f.pmlHBx()*f.pmlEIxy() + f.pmlHCx()/delx*(f.getNeighborMax(0).Ey() - f.Ey());
+		f.Bz() -= f.pmlEIxy()*delt;
+	};
+};
+
+
+// specialization for TE *AND* direction
+template <>
+struct UpdatePMLB<TE, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLB<TE, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlEIyx() = f.pmlHBy()*f.pmlEIyx() + f.pmlHCy()/delx*(f.getNeighborMax(1).Ex() - f.Ex());	
+		f.Bz() += f.pmlEIyx()*delt;
+	};
+};
+
+
+
+// specialization for TM *AND* direction
+template <>
+struct UpdatePMLB<TM, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLB<TM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/delx*(f.getNeighborMax(0).Ez() - f.Ez());
+		f.By() += f.pmlEIxz()*delt;
+	};
+};
+
+
+// specialization for TM *AND* direction
+template <>
+struct UpdatePMLB<TM, Dir::Y>{
+	double dt, dx;
+
+	UpdatePMLB<TM, Dir::Y>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// y direction
+		f.pmlEIyz() = f.pmlHBy()*f.pmlEIyz() + f.pmlHCy()/delx*(f.getNeighborMax(1).Ez() - f.Ez());	
+		f.Bx() -= f.pmlEIyz()*delt;
+	};
+};
+
+
+// specialization for TEM *AND* direction
+template <>
+struct UpdatePMLB<TEM, Dir::X>{
+	double dt, dx;
+
+	UpdatePMLB<TEM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template <class YeeCell>
+	void operator()(YeeCell & f){
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		// x direction
+		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/delx*(f.getNeighborMax(0).Ez() - f.Ez());	
+		f.By() += f.pmlEIxz()*delt;
+	};
+};
 
 //************************************************************
 //************************************************************

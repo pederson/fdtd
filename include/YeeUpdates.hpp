@@ -23,8 +23,8 @@ public:
 	BDFields<n, Mode, FieldType>() : mCurr(2) {};
 
 	BDFields & BD() {return *this;};
-	Fields & BD(int i) {return mFields[(n-1-mCurr+i)%n];};
-	void increment() {mCurr = std::min(n-1, (mCurr-1));};
+	Fields & BD(int i) {return mFields[n-1-(mCurr+i)%n];};
+	void increment() {mCurr = (mCurr+1)%n;};
 };
 
 // Define difference operators on YeeCell objects

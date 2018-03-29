@@ -76,6 +76,7 @@ struct Bz : public Field{};
 
 
 enum class Dir : char{
+    NONE,
 	X = 1,
 	Y,
 	Z

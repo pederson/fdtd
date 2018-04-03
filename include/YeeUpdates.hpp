@@ -20,11 +20,11 @@ private:
 	Fields mFields[n];
 	unsigned int mCurr;
 public:
-	BDFields<n, Mode, FieldType>() : mCurr(2) {};
+	BDFields<n, Mode, FieldType>() : mCurr(0) {};
 
 	BDFields & BD() {return *this;};
-	Fields & BD(int i) {return mFields[n-1-(mCurr+i)%n];};
-	void increment() {mCurr = (mCurr+1)%n;};
+	Fields & BD(int i) {return mFields[(mCurr+i)%n];};
+	void increment() {mCurr = (mCurr==0 ? n-1 : mCurr-1);};
 };
 
 // Define difference operators on YeeCell objects
@@ -323,6 +323,129 @@ struct YeeUpdateD<TEM>{
 };
 
 
+
+
+
+
+
+
+// ************ THESE ARE THE BD3 UPDATES
+// specialization for 3D
+template<>
+struct YeeUpdateD<ThreeD, BD3>{
+	double dt, dx;
+
+	YeeUpdateD<ThreeD, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double hDx = f.Dx();
+		f.Dx() = 21.0/23.0*f.Dx() 
+				+3.0/23.0*f.BD(0).Dx()
+				-1.0/23.0*f.BD(1).Dx()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hz, Dir::Y>::get(f) - 1.0/f.pmlEKz()*fdtd::DifferenceOperator<fdtd::Hy, Dir::Z>::get(f));
+
+		double hDy = f.Dy();
+		f.Dy() = 21.0/23.0*f.Dy() 
+				+3.0/23.0*f.BD(0).Dy()
+				-1.0/23.0*f.BD(1).Dy()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKz()*fdtd::DifferenceOperator<fdtd::Hx, Dir::Z>::get(f) - 1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hz, Dir::X>::get(f));
+		
+		double hDz = f.Dz();
+		f.Dz() = 21.0/23.0*f.Dz() 
+				+3.0/23.0*f.BD(0).Dz()
+				-1.0/23.0*f.BD(1).Dz()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f) - 1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hx, Dir::Y>::get(f));
+	
+		f.BD(1).Dx() = f.BD(0).Dx();
+		f.BD(0).Dx() = hDx;
+
+		f.BD(1).Dy() = f.BD(0).Dy();
+		f.BD(0).Dy() = hDy;
+
+		f.BD(1).Dz() = f.BD(0).Dz();
+		f.BD(0).Dz() = hDz;
+	};
+};
+
+// specialization for TE
+template<>
+struct YeeUpdateD<TE, BD3>{
+	double dt, dx;
+
+	YeeUpdateD<TE, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double hDx = f.Dx();
+		f.Dx() = 21.0/23.0*f.Dx() 
+				+3.0/23.0*f.BD(0).Dx()
+				-1.0/23.0*f.BD(1).Dx()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hz, Dir::Y>::get(f));
+
+		double hDy = f.Dy();
+		f.Dy() = 21.0/23.0*f.Dy() 
+				+3.0/23.0*f.BD(0).Dy()
+				-1.0/23.0*f.BD(1).Dy()
+				+24.0/23.0*dt/dx*(-1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hz, Dir::X>::get(f));
+		
+		f.BD(1).Dx() = f.BD(0).Dx();
+		f.BD(0).Dx() = hDx;
+
+		f.BD(1).Dy() = f.BD(0).Dy();
+		f.BD(0).Dy() = hDy;
+	};
+};
+
+
+// specialization for TM
+template<>
+struct YeeUpdateD<TM, BD3>{
+	double dt, dx;
+
+	YeeUpdateD<TM, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		double hDz = f.Dz();
+		f.Dz() = 21.0/23.0*f.Dz() 
+				+3.0/23.0*f.BD(0).Dz()
+				-1.0/23.0*f.BD(1).Dz()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f) - 1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hx, Dir::Y>::get(f));
+
+		f.BD(1).Dz() = f.BD(0).Dz();
+		f.BD(0).Dz() = hDz;
+	};
+};
+
+
+
+// specialization for TEM
+template<>
+struct YeeUpdateD<TEM, BD3>{
+	double dt, dx;
+
+	YeeUpdateD<TEM, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+
+		double hDz = f.Dz();
+		f.Dz() = 21.0/23.0*f.Dz() 
+				+3.0/23.0*f.BD(0).Dz()
+				-1.0/23.0*f.BD(1).Dz()
+				+24.0/23.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f));
+	
+		f.BD(1).Dz() = f.BD(0).Dz();
+		f.BD(0).Dz() = hDz;
+	};
+};
+
+
+
+
+
+
 // ************ THESE ARE THE BD4 UPDATES
 // specialization for 3D
 template<>
@@ -354,9 +477,16 @@ struct YeeUpdateD<ThreeD, BD4>{
 				+1.0/22.0*f.BD(2).Dz()
 				+24.0/22.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f) - 1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hx, Dir::Y>::get(f));
 	
-		f.BD().increment();
+		f.BD(2).Dx() = f.BD(1).Dx();
+		f.BD(1).Dx() = f.BD(0).Dx();
 		f.BD(0).Dx() = hDx;
+
+		f.BD(2).Dy() = f.BD(1).Dy();
+		f.BD(1).Dy() = f.BD(0).Dy();
 		f.BD(0).Dy() = hDy;
+
+		f.BD(2).Dz() = f.BD(1).Dz();
+		f.BD(1).Dz() = f.BD(0).Dz();
 		f.BD(0).Dz() = hDz;
 	};
 };
@@ -370,9 +500,6 @@ struct YeeUpdateD<TE, BD4>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Dx() += dt/dx*( 1.0/f.pmlEKy()*(f.Hz() - f.getNeighborMin(1).Hz()));
-		f.Dy() += dt/dx*(-1.0/f.pmlEKx()*(f.Hz() - f.getNeighborMin(0).Hz()));
-	
 		double hDx = f.Dx();
 		f.Dx() = 17.0/22.0*f.Dx() 
 				+9.0/22.0*f.BD(0).Dx()
@@ -387,8 +514,12 @@ struct YeeUpdateD<TE, BD4>{
 				+1.0/22.0*f.BD(2).Dy()
 				+24.0/22.0*dt/dx*(-1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hz, Dir::X>::get(f));
 		
-		f.BD().increment();
+		f.BD(2).Dx() = f.BD(1).Dx();
+		f.BD(1).Dx() = f.BD(0).Dx();
 		f.BD(0).Dx() = hDx;
+
+		f.BD(2).Dy() = f.BD(1).Dy();
+		f.BD(1).Dy() = f.BD(0).Dy();
 		f.BD(0).Dy() = hDy;
 	};
 };
@@ -403,15 +534,15 @@ struct YeeUpdateD<TM, BD4>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-
 		double hDz = f.Dz();
 		f.Dz() = 17.0/22.0*f.Dz() 
 				+9.0/22.0*f.BD(0).Dz()
 				-5.0/22.0*f.BD(1).Dz()
 				+1.0/22.0*f.BD(2).Dz()
 				+24.0/22.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f) - 1.0/f.pmlEKy()*fdtd::DifferenceOperator<fdtd::Hx, Dir::Y>::get(f));
-	
-		f.BD().increment();
+
+		f.BD(2).Dz() = f.BD(1).Dz();
+		f.BD(1).Dz() = f.BD(0).Dz();
 		f.BD(0).Dz() = hDz;
 	};
 };
@@ -435,7 +566,8 @@ struct YeeUpdateD<TEM, BD4>{
 				+1.0/22.0*f.BD(2).Dz()
 				+24.0/22.0*dt/dx*(1.0/f.pmlEKx()*fdtd::DifferenceOperator<fdtd::Hy, Dir::X>::get(f));
 	
-		f.BD().increment();
+		f.BD(2).Dz() = f.BD(1).Dz();
+		f.BD(1).Dz() = f.BD(0).Dz();
 		f.BD(0).Dz() = hDz;
 	};
 };
@@ -609,6 +741,128 @@ struct YeeUpdateB<TEM>{
 
 
 
+
+// *********** THIS IS BD3 SCHEME
+// specialization for 3D
+template<>
+struct YeeUpdateB<ThreeD, BD3>{
+	double dt, dx;
+
+	YeeUpdateB<ThreeD, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		auto hBx = f.Bx();
+		f.Bx() = 21.0/23.0*f.Bx() 
+				+3.0/23.0*f.BD(0).Bx()
+				-1.0/23.0*f.BD(1).Bx()
+				-24.0/23.0*dt/dx*(1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ez, Dir::Y>::get(f) - 1.0/f.pmlHKz()*fdtd::DifferenceOperator<fdtd::Ey, Dir::Z>::get(f));
+		
+		auto hBy = f.By();
+		f.By() = 21.0/23.0*f.By() 
+				+3.0/23.0*f.BD(0).By()
+				-1.0/23.0*f.BD(1).By()
+				-24.0/23.0*dt/dx*(1.0/f.pmlHKz()*fdtd::DifferenceOperator<fdtd::Ex, Dir::Z>::get(f) - 1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
+		
+		auto hBz = f.Bz();
+		f.Bz() = 21.0/23.0*f.Bz() 
+				+3.0/23.0*f.BD(0).Bz()
+				-1.0/23.0*f.BD(1).Bz()
+				-24.0/23.0*dt/dx*(1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ey, Dir::X>::get(f) - 1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
+	
+		f.BD(1).Bx() = f.BD(0).Bx();
+		f.BD(0).Bx() = hBx;
+
+		f.BD(1).By() = f.BD(0).By();
+		f.BD(0).By() = hBy;
+
+		f.BD(1).Bz() = f.BD(0).Bz();
+		f.BD(0).Bz() = hBz;
+	};
+};
+
+
+// specialization for TE
+template<>
+struct YeeUpdateB<TE, BD3>{
+	double dt, dx;
+
+	YeeUpdateB<TE, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		auto hBz = f.Bz();
+		f.Bz() = 21.0/23.0*f.Bz() 
+				+3.0/23.0*f.BD(0).Bz()
+				-1.0/23.0*f.BD(1).Bz()
+				-24.0/23.0*dt/dx*(1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ey, Dir::X>::get(f) - 1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
+	
+		f.BD(1).Bz() = f.BD(0).Bz();
+		f.BD(0).Bz() = hBz;
+	};
+};
+
+
+// specialization for TM
+template<>
+struct YeeUpdateB<TM, BD3>{
+	double dt, dx;
+
+	YeeUpdateB<TM, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		auto hBx = f.Bx();
+		f.Bx() = 21.0/23.0*f.Bx() 
+				+3.0/23.0*f.BD(0).Bx()
+				-1.0/23.0*f.BD(1).Bx()
+				-24.0/23.0*dt/dx*(1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ez, Dir::Y>::get(f));
+		
+		auto hBy = f.By();
+		f.By() = 21.0/23.0*f.By() 
+				+3.0/23.0*f.BD(0).By()
+				-1.0/23.0*f.BD(1).By()
+				-24.0/23.0*dt/dx*(-1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
+
+		f.BD(1).Bx() = f.BD(0).Bx();
+		f.BD(0).Bx() = hBx;
+
+		f.BD(1).By() = f.BD(0).By();
+		f.BD(0).By() = hBy;
+	};
+};
+
+
+// specialization for TEM
+template<>
+struct YeeUpdateB<TEM, BD3>{
+	double dt, dx;
+
+	YeeUpdateB<TEM, BD3>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell>
+	void operator()(YeeCell & f){
+		// f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
+
+		auto hBy = f.By();
+		f.By() = 21.0/23.0*f.By() 
+				+3.0/23.0*f.BD(0).By()
+				-1.0/23.0*f.BD(1).By()
+				-24.0/23.0*dt/dx*(-1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
+		
+
+		f.BD(1).By() = f.BD(0).By();
+		f.BD(0).By() = hBy;
+	};
+};
+
+
+
+
+
+
+
+
 // *********** THIS IS BD4 SCHEME
 // specialization for 3D
 template<>
@@ -640,9 +894,16 @@ struct YeeUpdateB<ThreeD, BD4>{
 				+1.0/22.0*f.BD(2).Bz()
 				-24.0/22.0*dt/dx*(1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ey, Dir::X>::get(f) - 1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
 	
-		f.BD().increment();
+		f.BD(2).Bx() = f.BD(1).Bx();
+		f.BD(1).Bx() = f.BD(0).Bx();
 		f.BD(0).Bx() = hBx;
+
+		f.BD(2).By() = f.BD(1).By();
+		f.BD(1).By() = f.BD(0).By();
 		f.BD(0).By() = hBy;
+
+		f.BD(2).Bz() = f.BD(1).Bz();
+		f.BD(1).Bz() = f.BD(0).Bz();
 		f.BD(0).Bz() = hBz;
 	};
 };
@@ -657,7 +918,6 @@ struct YeeUpdateB<TE, BD4>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Bz() -= dt/dx*(1.0/f.pmlHKx()*(f.getNeighborMax(0).Ey() - f.Ey()) - 1.0/f.pmlHKy()*(f.getNeighborMax(1).Ex() - f.Ex()));
 		auto hBz = f.Bz();
 		f.Bz() = 17.0/22.0*f.Bz() 
 				+9.0/22.0*f.BD(0).Bz()
@@ -665,7 +925,8 @@ struct YeeUpdateB<TE, BD4>{
 				+1.0/22.0*f.BD(2).Bz()
 				-24.0/22.0*dt/dx*(1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ey, Dir::X>::get(f) - 1.0/f.pmlHKy()*fdtd::DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
 	
-		f.BD().increment();
+		f.BD(2).Bz() = f.BD(1).Bz();
+		f.BD(1).Bz() = f.BD(0).Bz();
 		f.BD(0).Bz() = hBz;
 	};
 };
@@ -680,9 +941,6 @@ struct YeeUpdateB<TM, BD4>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.Bx() -= dt/dx*( 1.0/f.pmlHKy()*(f.getNeighborMax(1).Ez() - f.Ez()));
-		f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
-	
 		auto hBx = f.Bx();
 		f.Bx() = 17.0/22.0*f.Bx() 
 				+9.0/22.0*f.BD(0).Bx()
@@ -696,9 +954,13 @@ struct YeeUpdateB<TM, BD4>{
 				-5.0/22.0*f.BD(1).By()
 				+1.0/22.0*f.BD(2).By()
 				-24.0/22.0*dt/dx*(-1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
-		
-		f.BD().increment();
+
+		f.BD(2).Bx() = f.BD(1).Bx();
+		f.BD(1).Bx() = f.BD(0).Bx();
 		f.BD(0).Bx() = hBx;
+
+		f.BD(2).By() = f.BD(1).By();
+		f.BD(1).By() = f.BD(0).By();
 		f.BD(0).By() = hBy;
 	};
 };
@@ -713,7 +975,7 @@ struct YeeUpdateB<TEM, BD4>{
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
+		// f.By() -= dt/dx*(-1.0/f.pmlHKx()*(f.getNeighborMax(0).Ez() - f.Ez()));
 
 		auto hBy = f.By();
 		f.By() = 17.0/22.0*f.By() 
@@ -723,7 +985,8 @@ struct YeeUpdateB<TEM, BD4>{
 				-24.0/22.0*dt/dx*(-1.0/f.pmlHKx()*fdtd::DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
 		
 
-		f.BD().increment();
+		f.BD(2).By() = f.BD(1).By();
+		f.BD(1).By() = f.BD(0).By();
 		f.BD(0).By() = hBy;
 	};
 };

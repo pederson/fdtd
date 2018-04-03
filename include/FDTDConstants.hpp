@@ -58,29 +58,52 @@ struct ThreeD : public EMMode{static const std::size_t dim=3;
                               static const std::size_t numH=3;};
 
 
-
-struct Field{};
-struct Ex : public Field{};
-struct Ey : public Field{};
-struct Ez : public Field{};
-struct Dx : public Field{};
-struct Dy : public Field{};
-struct Dz : public Field{};
-struct Hx : public Field{};
-struct Hy : public Field{};
-struct Hz : public Field{};
-struct Bx : public Field{};
-struct By : public Field{};
-struct Bz : public Field{};
-
-
+enum class FieldType : char{
+  NONE,
+  Electric,
+  Magnetic
+};
 
 enum class Dir : char{
     NONE,
-	X = 1,
-	Y,
-	Z
+  X = 0,
+  Y,
+  Z
 };
+
+enum class Orientation : char{
+    NONE,
+  MIN = 0,
+  MAX
+};
+
+struct Field{};
+
+  struct EType : public Field{
+    static const Orientation neighb_side = Orientation::MAX;
+    static const FieldType field_type = FieldType::Electric;
+  };
+    struct Ex : public EType{};
+    struct Ey : public EType{};
+    struct Ez : public EType{};
+    struct Dx : public EType{};
+    struct Dy : public EType{};
+    struct Dz : public EType{};
+
+  struct HType : public Field{
+    static const Orientation neighb_side = Orientation::MIN;
+    static const FieldType field_type = FieldType::Magnetic;
+  };
+    struct Hx : public HType{};
+    struct Hy : public HType{};
+    struct Hz : public HType{};
+    struct Bx : public HType{};
+    struct By : public HType{};
+    struct Bz : public HType{};
+
+
+
+
 
 
 

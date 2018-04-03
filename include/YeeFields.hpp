@@ -165,6 +165,32 @@ struct YeeFields<TEM, FieldType, ContainerT>: public YeeFieldData<TEM, FieldType
 
 
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+template <int n, typename Mode, typename FieldType>
+struct BDFields {
+	typedef YeeFields<Mode, FieldType, std::array> 	Fields;
+private: 
+	Fields mFields[n];
+	unsigned int mCurr;
+public:
+	BDFields<n, Mode, FieldType>() : mCurr(0) {};
+
+	BDFields & BD() {return *this;};
+	Fields & BD(int i) {return mFields[(mCurr+i)%n];};
+	void increment() {mCurr = (mCurr==0 ? n-1 : mCurr-1);};
+};
+
+
+
 }// end namespace fdtd
 
 #endif

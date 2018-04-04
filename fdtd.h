@@ -8,5 +8,6 @@
 #include "include/DispersiveMaterials.hpp"
 #include "include/PML.hpp"
 #include "include/SurfaceQuantities.hpp"
+#include "include/BoundaryUpdates.hpp"
 
 #endif

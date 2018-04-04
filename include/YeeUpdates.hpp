@@ -23,7 +23,8 @@ namespace fdtd{
 template <typename EMField, Dir d, 
 		  typename FieldGetter = GetField<EMField>, 
 		  typename  NeighborGetter = GetNeighbor<d, EMField::neighb_side>,
-		  FieldType F = EMField::field_type>
+		  FieldType F = EMField::field_type,
+		  typename ...Args>
 struct DifferenceOperator{
 	static_assert(std::is_same<Field, EMField>::value, "DifferenceOperator needs a valid EMField");
 
@@ -50,6 +51,16 @@ struct DifferenceOperator<EMField, d, FieldGetter, NeighborGetter, FieldType::Ma
 	}
 };
 
+
+template <typename EMField, Dir d>
+struct DefaultDifferenceOperatorTypedef{
+	typedef DifferenceOperator<EMField, d, 
+							   GetField<EMField>, 
+							   GetNeighbor<d, EMField::neighb_side>,
+							   EMField::field_type> 	type;
+};
+template <typename EMField, Dir d>
+using DefaultDifferenceOperator = typename DefaultDifferenceOperatorTypedef<EMField, d>::type;
 
 //************************************************************
 //************************************************************
@@ -156,58 +167,80 @@ struct NullFieldUpdate{
 
 
 
-// these updates require PML values available
-// i.e.  pmlEKx(), pmlEKy(), and pmlEKz()
-template <class Mode, class TimePolicy = BD1, class PMLCoeffPolicy = PMLCoeff<true>>
+
+template <class Mode, 
+		  class TimePolicy 			= BD1, 
+		  class PMLCoeffPolicy 		= PMLCoeff<true>,
+		  template <typename> class FieldPolicy = GetField,
+		  template <typename,Dir> class DifferencePolicy = DefaultDifferenceOperator>
 struct YeeUpdateD{
+	// template <typename, typename, typename, typename, typename> class DifferencePolicy = DifferenceOperator
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	static_assert(std::is_same<TemporalScheme, TimePolicy>::value, "YeeUpdate needs a valid TemporalScheme");
 };
 
 
 // specialization for 3D
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		auto hDx = f.Dx();
-		f.Dx() = TimePolicy::template get<fdtd::Dx>
-				+TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKy(f)*fdtd::DifferenceOperator<Hz, Dir::Y>::get(f)
-											 - 1.0/PMLCoeffPolicy::pmlEKz(f)*fdtd::DifferenceOperator<Hy, Dir::Z>::get(f));
-		auto hDy = f.Dy();
-		f.Dy() = TimePolicy::template get<fdtd::Dy>
-				+TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKz(f)*fdtd::DifferenceOperator<Hx, Dir::Z>::get(f)
-											 - 1.0/PMLCoeffPolicy::pmlEKx(f)*fdtd::DifferenceOperator<Hz, Dir::X>::get(f));
-		auto hDz = f.Dz();
-		f.Dz() = TimePolicy::template get<fdtd::Dz>
-				+TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKx(f)*fdtd::DifferenceOperator<Hy, Dir::X>::get(f)
-											 - 1.0/PMLCoeffPolicy::pmlEKy(f)*fdtd::DifferenceOperator<Hx, Dir::Y>::get(f));
-	
-		TimePolicy::template increment<fdtd::Dx>(f, hDx);
-		TimePolicy::template increment<fdtd::Dy>(f, hDy);
-		TimePolicy::template increment<fdtd::Dz>(f, hDz);
+		update(f, dt, dx);
 	};
+
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		auto hDx = FieldPolicy<fdtd::Dx>::get(f);
+		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx, FieldPolicy<fdtd::Dx>>
+				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hz, Dir::Y>::get(f)
+											 - 1.0/PMLCoeffPolicy::pmlEKz(f)*DifferencePolicy<Hy, Dir::Z>::get(f));
+		auto hDy = FieldPolicy<fdtd::Dy>::get(f);
+		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dy, FieldPolicy<fdtd::Dy>>
+				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKz(f)*DifferencePolicy<Hx, Dir::Z>::get(f)
+											 - 1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hz, Dir::X>::get(f));
+		auto hDz = FieldPolicy<fdtd::Dz>::get(f);
+		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz, FieldPolicy<fdtd::Dz>>
+				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f)
+											 - 1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hx, Dir::Y>::get(f));
+	
+		TimePolicy::template increment<fdtd::Dx, FieldPolicy<fdtd::Dx>>(f, hDx);
+		TimePolicy::template increment<fdtd::Dy, FieldPolicy<fdtd::Dy>>(f, hDy);
+		TimePolicy::template increment<fdtd::Dz, FieldPolicy<fdtd::Dz>>(f, hDz);
+
+	}
 };
 
 // specialization for TE
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		auto hDx = f.Dx();
-		f.Dx() = TimePolicy::template get<fdtd::Dx>
-				+TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKy(f)*fdtd::DifferenceOperator<Hz, Dir::Y>::get(f));
-		auto hDy = f.Dy();
-		f.Dy() = TimePolicy::template get<fdtd::Dy>
-				+TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlEKx(f)*fdtd::DifferenceOperator<Hz, Dir::X>::get(f));
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		auto hDx = FieldPolicy<fdtd::Dx>::get(f);
+		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx>
+				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hz, Dir::Y>::get(f));
+		auto hDy = FieldPolicy<fdtd::Dy>::get(f);
+		FieldPolicy<fdtd::Dy>::get(f) = TimePolicy::template get<fdtd::Dy>
+				+TimePolicy::curl_coeff*delt/delx*(-1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hz, Dir::X>::get(f));
 	
 		TimePolicy::template increment<fdtd::Dx>(f, hDx);
 		TimePolicy::template increment<fdtd::Dy>(f, hDy);
@@ -216,18 +249,26 @@ struct YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy>{
 
 
 // specialization for TM
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		auto hDz = f.Dz();
-		f.Dz() = TimePolicy::template get<fdtd::Dz>(f) 
-			   + TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKx(f)*fdtd::DifferenceOperator<Hy, Dir::X>::get(f)
-					  						 - 1.0/PMLCoeffPolicy::pmlEKy(f)*fdtd::DifferenceOperator<Hx, Dir::Y>::get(f));
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		auto hDz = FieldPolicy<fdtd::Dz>::get(f);
+		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz>(f) 
+			   						  + TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f)
+					  												- 1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hx, Dir::Y>::get(f));
 		
 		TimePolicy::template increment<fdtd::Dz>(f, hDz);
 	};
@@ -236,17 +277,25 @@ struct YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy>{
 
 
 // specialization for TEM
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void operator()(YeeCell & f){
-		auto hDz = f.Dz();
-		f.Dz() = TimePolicy::template get<fdtd::Dz>
-				+TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlEKx(f)*fdtd::DifferenceOperator<Hy, Dir::X>::get(f));
+		update(f, dt, dx);
+	};
+
+	template <class YeeCell>
+	static void update(YeeCell & f, double delt, double delx){
+		auto hDz = FieldPolicy<fdtd::Dz>::get(f);
+		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz>
+				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f));
 
 		TimePolicy::template increment<fdtd::Dz>(f, hDz);
 	};
@@ -263,7 +312,11 @@ struct YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy>{
 //************************************************************
 
 
-template <class Mode, class TimePolicy = BD1, class PMLCoeffPolicy = PMLCoeff<true>>
+template <class Mode, 
+		  class TimePolicy 			= BD1, 
+		  class PMLCoeffPolicy 		= PMLCoeff<true>,
+		  template <typename> class FieldPolicy = GetField,
+		  template <typename,Dir> class DifferencePolicy = DefaultDifferenceOperator>
 struct YeeUpdateB{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 	static_assert(std::is_same<TemporalScheme, TimePolicy>::value, "YeeUpdate needs a valid TemporalScheme");
@@ -272,26 +325,29 @@ struct YeeUpdateB{
 
 
 // specialization for 3D
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		auto hBx = f.Bx();
-		f.Bx() = TimePolicy::template get<fdtd::Bx>(f)
-				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferenceOperator<fdtd::Ez, Dir::Y>::get(f)
-					 						  -1.0/PMLCoeffPolicy::pmlHKz(f)*DifferenceOperator<fdtd::Ey, Dir::Z>::get(f));
-		auto hBy = f.By();
-		f.By() = TimePolicy::template get<fdtd::By>(f)
-				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKz(f)*DifferenceOperator<fdtd::Ex, Dir::Z>::get(f)
-					 						  -1.0/PMLCoeffPolicy::pmlHKx(f)*DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
-		auto hBz = f.Bz();
-		f.Bz() = TimePolicy::template get<fdtd::Bz>(f)
-				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKx(f)*DifferenceOperator<fdtd::Ey, Dir::X>::get(f)
-					 						  -1.0/PMLCoeffPolicy::pmlHKy(f)*DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
+		auto hBx = FieldPolicy<fdtd::Bx>::get(f);
+		FieldPolicy<fdtd::Bx>::get(f) = TimePolicy::template get<fdtd::Bx>(f)
+				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ez, Dir::Y>::get(f)
+					 						  -1.0/PMLCoeffPolicy::pmlHKz(f)*DifferencePolicy<fdtd::Ey, Dir::Z>::get(f));
+		auto hBy = FieldPolicy<fdtd::By>::get(f);
+		FieldPolicy<fdtd::By>::get(f) = TimePolicy::template get<fdtd::By>(f)
+				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKz(f)*DifferencePolicy<fdtd::Ex, Dir::Z>::get(f)
+					 						  -1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ez, Dir::X>::get(f));
+		auto hBz = FieldPolicy<fdtd::Bz>::get(f);
+		FieldPolicy<fdtd::Bz>::get(f) = TimePolicy::template get<fdtd::Bz>(f)
+				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ey, Dir::X>::get(f)
+					 						  -1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ex, Dir::Y>::get(f));
 
 		TimePolicy::template increment<fdtd::Bx>(f, hBx);
 		TimePolicy::template increment<fdtd::By>(f, hBy);
@@ -302,18 +358,21 @@ struct YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy>{
 
 
 // specialization for TE
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		auto hBz = f.Bz();
-		f.Bz() = TimePolicy::template get<fdtd::Bz>(f)
-				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKx(f)*DifferenceOperator<fdtd::Ey, Dir::X>::get(f)
-					 						  -1.0/PMLCoeffPolicy::pmlHKy(f)*DifferenceOperator<fdtd::Ex, Dir::Y>::get(f));
+		auto hBz = FieldPolicy<fdtd::Bz>::get(f);
+		FieldPolicy<fdtd::Bz>::get(f) = TimePolicy::template get<fdtd::Bz>(f)
+				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ey, Dir::X>::get(f)
+					 						  -1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ex, Dir::Y>::get(f));
 
 		TimePolicy::template increment<fdtd::Bz>(f, hBz);
 	};
@@ -321,20 +380,23 @@ struct YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy>{
 
 
 // specialization for TM
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		auto hBx = f.Bx();
-		f.Bx() = TimePolicy::template get<fdtd::Bx>(f)
-				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferenceOperator<fdtd::Ez, Dir::Y>::get(f));
-		auto hBy = f.By();
-		f.By() = TimePolicy::template get<fdtd::By>(f)
-				-TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlHKx(f)*DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
+		auto hBx = FieldPolicy<fdtd::Bx>::get(f);
+		FieldPolicy<fdtd::Bx>::get(f) = TimePolicy::template get<fdtd::Bx>(f)
+				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ez, Dir::Y>::get(f));
+		auto hBy = FieldPolicy<fdtd::By>::get(f);
+		FieldPolicy<fdtd::By>::get(f) = TimePolicy::template get<fdtd::By>(f)
+				-TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ez, Dir::X>::get(f));
 
 		TimePolicy::template increment<fdtd::Bx>(f, hBx);
 		TimePolicy::template increment<fdtd::By>(f, hBy);
@@ -343,17 +405,20 @@ struct YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy>{
 
 
 // specialization for TEM
-template <typename TimePolicy, typename PMLCoeffPolicy>
-struct YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy>{
+template <typename TimePolicy, 
+		  typename PMLCoeffPolicy, 
+		  template <typename> class FieldPolicy,
+		  template <typename,Dir> class DifferencePolicy>
+struct YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>{
 	double dt, dx;
 
-	YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+	YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
 	void operator()(YeeCell & f){
-		auto hBy = f.By();
-		f.By() = TimePolicy::template get<fdtd::By>(f)
-				-TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlHKx(f)*DifferenceOperator<fdtd::Ez, Dir::X>::get(f));
+		auto hBy = FieldPolicy<fdtd::By>::get(f);
+		FieldPolicy<fdtd::By>::get(f) = TimePolicy::template get<fdtd::By>(f)
+				-TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ez, Dir::X>::get(f));
 		TimePolicy::template increment<fdtd::By>(f, hBy);
 	};
 };

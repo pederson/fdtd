@@ -233,37 +233,37 @@ struct UpdateBoundaryB<Boundary::PEC, Mode, d, o, FieldPolicy>{
 // };
 
 
-// define the D update for PMC boundary
-template <class Mode, Dir d, template <typename> class FieldPolicy>
-struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MIN, FieldPolicy>{
-	double dt, dx;
+// // define the D update for PMC boundary
+// template <class Mode, Dir d, template <typename> class FieldPolicy>
+// struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MIN, FieldPolicy>{
+// 	double dt, dx;
 
-	template <typename YeeCell>
-	void operator()(YeeCell & f){
-		// do nothing
-	}
-};
+// 	template <typename YeeCell>
+// 	void operator()(YeeCell & f){
+// 		// do nothing
+// 	}
+// };
 
-template <class Mode, Dir d, template <typename> class FieldPolicy>
-struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MAX, FieldPolicy>{
-	double dt, dx;
+// template <class Mode, Dir d, template <typename> class FieldPolicy>
+// struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MAX, FieldPolicy>{
+// 	double dt, dx;
 
-	template <typename YeeCell>
-	void operator()(YeeCell & f){
-		// do nothing
-	}
-};
+// 	template <typename YeeCell>
+// 	void operator()(YeeCell & f){
+// 		// do nothing
+// 	}
+// };
 
-// define the update for PMC boundary
-template <class Mode, Dir d, Orientation o, template <typename> class FieldPolicy>
-struct UpdateBoundaryB<Boundary::PMC, Mode, d, o, FieldPolicy>{
-	double dt, dx;
+// // define the update for PMC boundary
+// template <class Mode, Dir d, Orientation o, template <typename> class FieldPolicy>
+// struct UpdateBoundaryB<Boundary::PMC, Mode, d, o, FieldPolicy>{
+// 	double dt, dx;
 
-	template <typename YeeCell>
-	void operator()(YeeCell & f){
-		YeeUpdateB<Mode, TemporalPMC, PMLCoeff<false>, FieldPolicy, PMCDifferenceOperator>::update(f, dt, dx);
-	}
-};
+// 	template <typename YeeCell>
+// 	void operator()(YeeCell & f){
+// 		YeeUpdateB<Mode, TemporalPMC, PMLCoeff<false>, FieldPolicy, PMCDifferenceOperator>::update(f, dt, dx);
+// 	}
+// };
 
 
 

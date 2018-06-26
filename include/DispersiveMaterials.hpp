@@ -6,20 +6,20 @@
 namespace fdtd{
 
 
-
+template <typename scalar_type = double>
 struct VacuumPolarization{
 	constexpr double permittivity_r() const {return 1.0;};
-	constexpr double Px() const {return 0;};
-	constexpr double Py() const {return 0;};
-	constexpr double Pz() const {return 0;};
+	constexpr scalar_type Px() const {return 0;};
+	constexpr scalar_type Py() const {return 0;};
+	constexpr scalar_type Pz() const {return 0;};
 };
 
-
+template <typename scalar_type = double>
 struct VacuumMagnetization{
 	constexpr double permeability_r() const {return 1.0;};
-	constexpr double Mx() const {return 0;};
-	constexpr double My() const {return 0;};
-	constexpr double Mz() const {return 0;};
+	constexpr scalar_type Mx() const {return 0;};
+	constexpr scalar_type My() const {return 0;};
+	constexpr scalar_type Mz() const {return 0;};
 };
 
 
@@ -32,77 +32,80 @@ struct VacuumMagnetization{
 //************************************************************
 
 
-
+template <typename scalar_type = double>
 struct SinglePolarization{
-	double mPx, mPy, mPz, mPermittivityR;
+	scalar_type mPx, mPy, mPz;
+	double mPermittivityR;
 
 	SinglePolarization()
 	: mPermittivityR(1.0)
 	, mPx(0.0), mPy(0.0), mPz(0.0) {};
 
 	const double & permittivity_r() const {return mPermittivityR;};
-	const double & Px() const {return mPx;};
-	const double & Py() const {return mPy;};
-	const double & Pz() const {return mPz;};
+	const scalar_type & Px() const {return mPx;};
+	const scalar_type & Py() const {return mPy;};
+	const scalar_type & Pz() const {return mPz;};
 
 
 	double & permittivity_r() {return mPermittivityR;}
-	double & Px() {return mPx;};
-	double & Py() {return mPy;};
-	double & Pz() {return mPz;};
+	scalar_type & Px() {return mPx;};
+	scalar_type & Py() {return mPy;};
+	scalar_type & Pz() {return mPz;};
 };
 
-struct DoublePolarization : public SinglePolarization{
-	double mJx, mJy, mJz;
+template <typename scalar_type = double>
+struct DoublePolarization : public SinglePolarization<scalar_type>{
+	scalar_type mJx, mJy, mJz;
 
 	DoublePolarization()
-	: SinglePolarization(), mJx(0.0), mJy(0.0), mJz(0.0) {};
+	: SinglePolarization<scalar_type>(), mJx(0.0), mJy(0.0), mJz(0.0) {};
 
 
-	const double & Jx() const {return mJx;};
-	const double & Jy() const {return mJy;};
-	const double & Jz() const {return mJz;};
+	const scalar_type & Jx() const {return mJx;};
+	const scalar_type & Jy() const {return mJy;};
+	const scalar_type & Jz() const {return mJz;};
 
 
-	double & permittivity_r() {return mPermittivityR;}
-	double & Jx() {return mJx;};
-	double & Jy() {return mJy;};
-	double & Jz() {return mJz;};
+	// double & permittivity_r() {return mPermittivityR;}
+	scalar_type & Jx() {return mJx;};
+	scalar_type & Jy() {return mJy;};
+	scalar_type & Jz() {return mJz;};
 };
 
-
+template <typename scalar_type = double>
 struct SingleMagnetization{
-	double mMx, mMy, mMz, mPermeabilityR;
+	scalar_type mMx, mMy, mMz;
+	double mPermeabilityR;
 
 	SingleMagnetization()
 	: mPermeabilityR(1.0)
 	, mMx(0.0), mMy(0.0), mMz(0.0) {};
 
 	const double & permeability_r() const {return mPermeabilityR;};
-	const double & Mx() const {return mMx;};
-	const double & My() const {return mMy;};
-	const double & Mz() const {return mMz;};
+	const scalar_type & Mx() const {return mMx;};
+	const scalar_type & My() const {return mMy;};
+	const scalar_type & Mz() const {return mMz;};
 
 	double & permeability_r() {return mPermeabilityR;}
-	double & Mx() {return mMx;};
-	double & My() {return mMy;};
-	double & Mz() {return mMz;};
+	scalar_type & Mx() {return mMx;};
+	scalar_type & My() {return mMy;};
+	scalar_type & Mz() {return mMz;};
 };
 
-
-struct DoubleMagnetization : public SingleMagnetization{
-	double mKx, mKy, mKz;
+template <typename scalar_type = double>
+struct DoubleMagnetization : public SingleMagnetization<scalar_type>{
+	scalar_type mKx, mKy, mKz;
 
 	DoubleMagnetization()
-	: mKx(0.0), mKy(0.0), mKz(0.0) {};
+	: SingleMagnetization<scalar_type>(), mKx(0.0), mKy(0.0), mKz(0.0) {};
 
-	const double & Kx() const {return mKx;};
-	const double & Ky() const {return mKy;};
-	const double & Kz() const {return mKz;};
+	const scalar_type & Kx() const {return mKx;};
+	const scalar_type & Ky() const {return mKy;};
+	const scalar_type & Kz() const {return mKz;};
 
-	double & Kx() {return mKx;};
-	double & Ky() {return mKy;};
-	double & Kz() {return mKz;};
+	scalar_type & Kx() {return mKx;};
+	scalar_type & Ky() {return mKy;};
+	scalar_type & Kz() {return mKz;};
 };
 
 
@@ -683,7 +686,7 @@ struct DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-		double Pzhold = f.Pz();
+		auto Pzhold = f.Pz();
 		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
 		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
 

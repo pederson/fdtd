@@ -293,11 +293,15 @@ struct YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy
 
 	template <class YeeCell>
 	static void update(YeeCell & f, double delt, double delx){
+		// std::cout << "here 1" << std::endl;
 		auto hDz = FieldPolicy<fdtd::Dz>::get(f);
-		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz>
-				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f));
+		// std::cout << "here 2" << std::endl;
+		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz>(f)
+									  + TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f));
 
+		// std::cout << "here 3" << std::endl;
 		TimePolicy::template increment<fdtd::Dz>(f, hDz);
+		// std::cout << "here 4" << std::endl;
 	};
 };
 

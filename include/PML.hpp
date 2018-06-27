@@ -10,7 +10,7 @@ namespace fdtd{
 
 
 
-template<typename Mode> class StoredPMLx;
+template<typename Mode, typename scalar_type> class StoredPMLx;
 template<typename Mode> class StoredPMLy;
 template<typename Mode> class StoredPMLz;	
 class NoPMLx;
@@ -18,8 +18,9 @@ class NoPMLy;
 class NoPMLz;
 
 template <typename Mode,
+		  typename scalar_type,
 		  bool X, bool Y, bool Z,
-		  class PMLTypeX = StoredPMLx<Mode>,
+		  class PMLTypeX = StoredPMLx<Mode, scalar_type>,
 		  class PMLTypeY = StoredPMLy<Mode>,
 		  class PMLTypeZ = StoredPMLz<Mode>
 		  >
@@ -799,103 +800,103 @@ struct NoPMLz{
 
 
 
-template <typename Mode>
+template <typename Mode, typename scalar_type=double>
 struct PMLIx{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
 
-template <>
-struct PMLIx<ThreeD>{
+template <typename scalar_type>
+struct PMLIx<ThreeD, scalar_type>{
 	// E convolution terms
-	double EIxx;
-	double EIxy;
-	double EIxz;
+	scalar_type EIxx;
+	scalar_type EIxy;
+	scalar_type EIxz;
 
 	// H convolution terms
-	double HIxx;
-	double HIxy;
-	double HIxz;
+	scalar_type HIxx;
+	scalar_type HIxy;
+	scalar_type HIxz;
 
 
-	PMLIx<ThreeD>()
+	PMLIx<ThreeD, scalar_type>()
 	: EIxx(0.0), EIxy(0.0), EIxz(0.0)
 	, HIxx(0.0), HIxy(0.0), HIxz(0.0) {};
 
 	// accessors
-	double & pmlEIxx() {return EIxx;};
-	double & pmlEIxy() {return EIxy;};
-	double & pmlEIxz() {return EIxz;};
-	double & pmlHIxx() {return HIxx;};
-	double & pmlHIxy() {return HIxy;};
-	double & pmlHIxz() {return HIxz;};
+	scalar_type & pmlEIxx() {return EIxx;};
+	scalar_type & pmlEIxy() {return EIxy;};
+	scalar_type & pmlEIxz() {return EIxz;};
+	scalar_type & pmlHIxx() {return HIxx;};
+	scalar_type & pmlHIxy() {return HIxy;};
+	scalar_type & pmlHIxz() {return HIxz;};
 };
 
 
 
-template <>
-struct PMLIx<TE>{
+template <typename scalar_type>
+struct PMLIx<TE, scalar_type>{
 	// E convolution terms
-	double EIxx;
-	double EIxy;
+	scalar_type EIxx;
+	scalar_type EIxy;
 
 	// H convolution terms
-	double HIxz;
+	scalar_type HIxz;
 
-	PMLIx<TE>()
+	PMLIx<TE, scalar_type>()
 	: EIxx(0.0), EIxy(0.0)
 	, HIxz(0.0) {};
 
 	// accessors
-	double & pmlEIxx() {return EIxx;};
-	double & pmlEIxy() {return EIxy;};
-	double & pmlHIxz() {return HIxz;};
+	scalar_type & pmlEIxx() {return EIxx;};
+	scalar_type & pmlEIxy() {return EIxy;};
+	scalar_type & pmlHIxz() {return HIxz;};
 };
 
 
 
-template <>
-struct PMLIx<TM>{
+template <typename scalar_type>
+struct PMLIx<TM, scalar_type>{
 	// E convolution terms
-	double EIxz;
+	scalar_type EIxz;
 
 	// H convolution terms
-	double HIxx;
-	double HIxy;
+	scalar_type HIxx;
+	scalar_type HIxy;
 
-	PMLIx<TM>()
+	PMLIx<TM, scalar_type>()
 	: EIxz(0.0)
 	, HIxx(0.0), HIxy(0.0) {};
 
 	// accessors
-	double & pmlEIxz() {return EIxz;};
-	double & pmlHIxx() {return HIxx;};
-	double & pmlHIxy() {return HIxy;};
+	scalar_type & pmlEIxz() {return EIxz;};
+	scalar_type & pmlHIxx() {return HIxx;};
+	scalar_type & pmlHIxy() {return HIxy;};
 };
 
 
-template <>
-struct PMLIx<TEM>{
+template <typename scalar_type>
+struct PMLIx<TEM, scalar_type>{
 	// E convolution terms
-	double EIxz;
+	scalar_type EIxz;
 
 	// H convolution terms
-	double HIxy;
+	scalar_type HIxy;
 
-	PMLIx<TEM>()
+	PMLIx<TEM, scalar_type>()
 	: EIxz(0.0)
 	, HIxy(0.0) {};
 
 	// accessors
-	double & pmlEIxz() {return EIxz;};
-	double & pmlHIxy() {return HIxy;};
+	scalar_type & pmlEIxz() {return EIxz;};
+	scalar_type & pmlHIxy() {return HIxy;};
 };
 
 
 
 
 // x PML Stored class
-template <typename Mode>
-struct StoredPMLx : public PMLIx<Mode>{
+template <typename Mode, typename scalar_type=double>
+struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 
 	// PML parameters
 	double EKx;
@@ -918,7 +919,7 @@ struct StoredPMLx : public PMLIx<Mode>{
 
 
 	StoredPMLx()
-	: PMLIx<Mode>()
+	: PMLIx<Mode, scalar_type>()
 	, EKx(1.0), ESx(0.0), EAx(0.0)
 	, EBx(1.0), ECx(0.0)
 	, HKx(1.0), HSx(0.0), HAx(0.0)

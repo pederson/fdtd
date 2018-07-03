@@ -11,7 +11,7 @@ namespace fdtd{
 
 
 template<typename Mode, typename scalar_type> class StoredPMLx;
-template<typename Mode> class StoredPMLy;
+template<typename Mode, typename scalar_type> class StoredPMLy;
 template<typename Mode> class StoredPMLz;	
 class NoPMLx;
 class NoPMLy;
@@ -21,7 +21,7 @@ template <typename Mode,
 		  typename scalar_type,
 		  bool X, bool Y, bool Z,
 		  class PMLTypeX = StoredPMLx<Mode, scalar_type>,
-		  class PMLTypeY = StoredPMLy<Mode>,
+		  class PMLTypeY = StoredPMLy<Mode, scalar_type>,
 		  class PMLTypeZ = StoredPMLz<Mode>
 		  >
 class PML : public std::conditional<X, PMLTypeX, NoPMLx>::type
@@ -51,7 +51,7 @@ public:
 template <class Mode, Dir d = Dir::NONE>
 struct UpdatePMLD{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-	
+	// static_assert(!std::is_same<d, Dir::NONE>::value, "PML Update needs a valid direction");
 };
 
 
@@ -977,105 +977,105 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 
 
 
-template <typename Mode>
+template <typename Mode, typename scalar_type = double>
 struct PMLIy{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
 
-template <>
-struct PMLIy<ThreeD>{
+template <typename scalar_type>
+struct PMLIy<ThreeD, scalar_type>{
 	// E convolution terms
-	double EIyx;
-	double EIyy;
-	double EIyz;
+	scalar_type EIyx;
+	scalar_type EIyy;
+	scalar_type EIyz;
 
 	// H convolution terms
-	double HIyx;
-	double HIyy;
-	double HIyz;
+	scalar_type HIyx;
+	scalar_type HIyy;
+	scalar_type HIyz;
 
-	PMLIy<ThreeD>()
+	PMLIy<ThreeD, scalar_type>()
 	: EIyx(0.0), EIyy(0.0), EIyz(0.0)
 	, HIyx(0.0), HIyy(0.0), HIyz(0.0) {};
 
 	// accessors
-	double & pmlEIyx() {return EIyx;};
-	double & pmlEIyy() {return EIyy;};
-	double & pmlEIyz() {return EIyz;};
-	double & pmlHIyx() {return HIyx;};
-	double & pmlHIyy() {return HIyy;};
-	double & pmlHIyz() {return HIyz;};
+	scalar_type & pmlEIyx() {return EIyx;};
+	scalar_type & pmlEIyy() {return EIyy;};
+	scalar_type & pmlEIyz() {return EIyz;};
+	scalar_type & pmlHIyx() {return HIyx;};
+	scalar_type & pmlHIyy() {return HIyy;};
+	scalar_type & pmlHIyz() {return HIyz;};
 };
 
 
 
-template <>
-struct PMLIy<TE>{
+template <typename scalar_type>
+struct PMLIy<TE, scalar_type>{
 	// E convolution terms
-	double EIyx;
-	double EIyy;
+	scalar_type EIyx;
+	scalar_type EIyy;
 
 	// H convolution terms
-	double HIyz;
+	scalar_type HIyz;
 
-	PMLIy<TE>()
+	PMLIy<TE, scalar_type>()
 	: EIyx(0.0), EIyy(0.0)
 	, HIyz(0.0) {};
 
 	// accessors
-	double & pmlEIyx() {return EIyx;};
-	double & pmlEIyy() {return EIyy;};
-	double & pmlHIyz() {return HIyz;};
+	scalar_type & pmlEIyx() {return EIyx;};
+	scalar_type & pmlEIyy() {return EIyy;};
+	scalar_type & pmlHIyz() {return HIyz;};
 };
 
 
 
 
-template <>
-struct PMLIy<TM>{
+template <typename scalar_type>
+struct PMLIy<TM, scalar_type>{
 	// E convolution terms
-	double EIyz;
+	scalar_type EIyz;
 
 	// H convolution terms
-	double HIyx;
-	double HIyy;
+	scalar_type HIyx;
+	scalar_type HIyy;
 
-	PMLIy<TM>()
+	PMLIy<TM, scalar_type>()
 	: EIyz(0.0)
 	, HIyx(0.0), HIyy(0.0) {};
 
 	// accessors
-	double & pmlEIyz() {return EIyz;};
-	double & pmlHIyx() {return HIyx;};
-	double & pmlHIyy() {return HIyy;};
+	scalar_type & pmlEIyz() {return EIyz;};
+	scalar_type & pmlHIyx() {return HIyx;};
+	scalar_type & pmlHIyy() {return HIyy;};
 };
 
 
 
 
-template <>
-struct PMLIy<TEM>{
+template <typename scalar_type>
+struct PMLIy<TEM, scalar_type>{
 	// E convolution terms
-	double EIyz;
+	scalar_type EIyz;
 
 	// H convolution terms
-	double HIyy;
+	scalar_type HIyy;
 
-	PMLIy<TEM>()
+	PMLIy<TEM, scalar_type>()
 	: EIyz(0.0)
 	, HIyy(0.0) {};
 
 	// accessors
-	double & pmlEIyz() {return EIyz;};
-	double & pmlHIyy() {return HIyy;};
+	scalar_type & pmlEIyz() {return EIyz;};
+	scalar_type & pmlHIyy() {return HIyy;};
 };
 
 
 
 
 // y PML Stored class
-template <typename Mode>
-struct StoredPMLy : public PMLIy<Mode>{
+template <typename Mode, typename scalar_type=double>
+struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 
 	// PML parameters
 	double EKy;
@@ -1098,7 +1098,7 @@ struct StoredPMLy : public PMLIy<Mode>{
 
 
 	StoredPMLy()
-	: PMLIy<Mode>()
+	: PMLIy<Mode, scalar_type>()
 	, EKy(1.0), ESy(0.0), EAy(0.0)
 	, EBy(1.0), ECy(0.0)
 	, HKy(1.0), HSy(0.0), HAy(0.0)

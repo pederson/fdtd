@@ -12,7 +12,7 @@ namespace fdtd{
 
 template<typename Mode, typename scalar_type> class StoredPMLx;
 template<typename Mode, typename scalar_type> class StoredPMLy;
-template<typename Mode> class StoredPMLz;	
+template<typename Mode, typename scalar_type> class StoredPMLz;	
 class NoPMLx;
 class NoPMLy;
 class NoPMLz;
@@ -22,7 +22,7 @@ template <typename Mode,
 		  bool X, bool Y, bool Z,
 		  class PMLTypeX = StoredPMLx<Mode, scalar_type>,
 		  class PMLTypeY = StoredPMLy<Mode, scalar_type>,
-		  class PMLTypeZ = StoredPMLz<Mode>
+		  class PMLTypeZ = StoredPMLz<Mode, scalar_type>
 		  >
 class PML : public std::conditional<X, PMLTypeX, NoPMLx>::type
 		  , public std::conditional<Y, PMLTypeY, NoPMLy>::type
@@ -1163,102 +1163,102 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 
 
 
-template <typename Mode>
+template <typename Mode, typename scalar_type = double>
 struct PMLIz{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
 
-template <>
-struct PMLIz<ThreeD>{
+template <typename scalar_type>
+struct PMLIz<ThreeD, scalar_type>{
 	// E convolution terms
-	double EIzx;
-	double EIzy;
-	double EIzz;
+	scalar_type EIzx;
+	scalar_type EIzy;
+	scalar_type EIzz;
 
 	// H convolution terms
-	double HIzx;
-	double HIzy;
-	double HIzz;
+	scalar_type HIzx;
+	scalar_type HIzy;
+	scalar_type HIzz;
 
-	PMLIz<ThreeD>()
+	PMLIz<ThreeD, scalar_type>()
 	: EIzx(0.0), EIzy(0.0), EIzz(0.0)
 	, HIzx(0.0), HIzy(0.0), HIzz(0.0) {};
 
 	// accessors
-	double & pmlEIzx() {return EIzx;};
-	double & pmlEIzy() {return EIzy;};
-	double & pmlEIzz() {return EIzz;};
-	double & pmlHIzx() {return HIzx;};
-	double & pmlHIzy() {return HIzy;};
-	double & pmlHIzz() {return HIzz;};
+	scalar_type & pmlEIzx() {return EIzx;};
+	scalar_type & pmlEIzy() {return EIzy;};
+	scalar_type & pmlEIzz() {return EIzz;};
+	scalar_type & pmlHIzx() {return HIzx;};
+	scalar_type & pmlHIzy() {return HIzy;};
+	scalar_type & pmlHIzz() {return HIzz;};
 };
 
 
-template <>
-struct PMLIz<TE>{
+template <typename scalar_type>
+struct PMLIz<TE, scalar_type>{
 	// E convolution terms
-	double EIzx;
-	double EIzy;
+	scalar_type EIzx;
+	scalar_type EIzy;
 
 	// H convolution terms
-	double HIzz;
+	scalar_type HIzz;
 
-	PMLIz<TE>()
+	PMLIz<TE, scalar_type>()
 	: EIzx(0.0), EIzy(0.0)
 	, HIzz(0.0) {};
 
 	// accessors
-	double & pmlEIzx() {return EIzx;};
-	double & pmlEIzy() {return EIzy;};
-	double & pmlHIzz() {return HIzz;};
+	scalar_type & pmlEIzx() {return EIzx;};
+	scalar_type & pmlEIzy() {return EIzy;};
+	scalar_type & pmlHIzz() {return HIzz;};
 };
 
 
-template <>
-struct PMLIz<TM>{
+template <typename scalar_type>
+struct PMLIz<TM, scalar_type>{
 	// E convolution terms
-	double EIzz;
+	scalar_type EIzz;
 
 	// H convolution terms
-	double HIzx;
-	double HIzy;
+	scalar_type HIzx;
+	scalar_type HIzy;
 
-	PMLIz<TM>()
+	PMLIz<TM, scalar_type>()
 	: EIzz(0.0)
 	, HIzx(0.0), HIzy(0.0) {};
 
 	// accessors
-	double & pmlEIzz() {return EIzz;};
-	double & pmlHIzx() {return HIzx;};
-	double & pmlHIzy() {return HIzy;};
+	scalar_type & pmlEIzz() {return EIzz;};
+	scalar_type & pmlHIzx() {return HIzx;};
+	scalar_type & pmlHIzy() {return HIzy;};
 };
 
 
 
 
-template <>
-struct PMLIz<TEM>{
+template <typename scalar_type>
+struct PMLIz<TEM, scalar_type>{
 	// E convolution terms
-	double EIzz;
+	scalar_type EIzz;
 
 	// H convolution terms
-	double HIzy;
+	scalar_type HIzy;
 
-	PMLIz<TEM>()
+	PMLIz<TEM, scalar_type>()
 	: EIzz(0.0)
 	, HIzy(0.0) {};
 
 	// accessors
-	double & pmlEIzz() {return EIzz;};
-	double & pmlHIzy() {return HIzy;};
+	scalar_type & pmlEIzz() {return EIzz;};
+	scalar_type & pmlHIzy() {return HIzy;};
 };
 
 
 
 
 // y PML Stored class
-template <typename Mode>
-struct StoredPMLz : public PMLIz<Mode>{
+template <typename Mode, typename scalar_type>
+struct StoredPMLz : public PMLIz<Mode, scalar_type>{
 
 	// PML parameters
 	double EKz;
@@ -1281,7 +1281,7 @@ struct StoredPMLz : public PMLIz<Mode>{
 
 
 	StoredPMLz()
-	: PMLIz<Mode>()
+	: PMLIz<Mode, scalar_type>()
 	, EKz(1.0), ESz(0.0), EAz(0.0)
 	, EBz(1.0), ECz(0.0)
 	, HKz(1.0), HSz(0.0), HAz(0.0)

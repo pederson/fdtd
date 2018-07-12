@@ -27,7 +27,7 @@ public:
 	CellType * location() {return mLoc;};
 
 	void apply(double t){
-		FieldGetter::get(*mLoc) = mFunc(t);
+		FieldGetter::get(*mLoc) += mFunc(t);
 	}
 
 	// in order to make this into a functor

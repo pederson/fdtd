@@ -199,15 +199,15 @@ struct YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePol
 	template <class YeeCell>
 	static void update(YeeCell & f, double delt, double delx){
 		auto hDx = FieldPolicy<fdtd::Dx>::get(f);
-		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx, FieldPolicy<fdtd::Dx>>
+		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx, FieldPolicy<fdtd::Dx>>(f)
 				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hz, Dir::Y>::get(f)
 											 - 1.0/PMLCoeffPolicy::pmlEKz(f)*DifferencePolicy<Hy, Dir::Z>::get(f));
 		auto hDy = FieldPolicy<fdtd::Dy>::get(f);
-		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dy, FieldPolicy<fdtd::Dy>>
+		FieldPolicy<fdtd::Dy>::get(f) = TimePolicy::template get<fdtd::Dy, FieldPolicy<fdtd::Dy>>(f)
 				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKz(f)*DifferencePolicy<Hx, Dir::Z>::get(f)
 											 - 1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hz, Dir::X>::get(f));
 		auto hDz = FieldPolicy<fdtd::Dz>::get(f);
-		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz, FieldPolicy<fdtd::Dz>>
+		FieldPolicy<fdtd::Dz>::get(f) = TimePolicy::template get<fdtd::Dz, FieldPolicy<fdtd::Dz>>(f)
 				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hy, Dir::X>::get(f)
 											 - 1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hx, Dir::Y>::get(f));
 	
@@ -236,10 +236,10 @@ struct YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>
 	template <class YeeCell>
 	static void update(YeeCell & f, double delt, double delx){
 		auto hDx = FieldPolicy<fdtd::Dx>::get(f);
-		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx>
+		FieldPolicy<fdtd::Dx>::get(f) = TimePolicy::template get<fdtd::Dx>(f)
 				+TimePolicy::curl_coeff*delt/delx*(1.0/PMLCoeffPolicy::pmlEKy(f)*DifferencePolicy<Hz, Dir::Y>::get(f));
 		auto hDy = FieldPolicy<fdtd::Dy>::get(f);
-		FieldPolicy<fdtd::Dy>::get(f) = TimePolicy::template get<fdtd::Dy>
+		FieldPolicy<fdtd::Dy>::get(f) = TimePolicy::template get<fdtd::Dy>(f)
 				+TimePolicy::curl_coeff*delt/delx*(-1.0/PMLCoeffPolicy::pmlEKx(f)*DifferencePolicy<Hz, Dir::X>::get(f));
 	
 		TimePolicy::template increment<fdtd::Dx>(f, hDx);

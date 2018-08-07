@@ -1104,6 +1104,7 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 	, HKy(1.0), HSy(0.0), HAy(0.0)
 	, HBy(1.0), HCy(0.0) {};
 
+
 	// StoredPMLy<ThreeD>(double K, double S, double A, double dt)
 	// : EKy(K), ESy(S), EAy(A)
 	// , EBy(1.0), ECy(0.0)

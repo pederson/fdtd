@@ -380,7 +380,7 @@ struct UpdatePMLB<ThreeD, d>{
 		f.Bx() += f.pmlEIzy()*dt;
 
 		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/dx*(f.getNeighborMax(2).Ex() - f.Ex());	
-		f.By() -= f.pmlHIzx()*dt;
+		f.By() -= f.pmlEIzx()*dt;
 	};
 };
 
@@ -516,7 +516,7 @@ struct UpdatePMLB<ThreeD, Dir::Z>{
 		f.Bx() += f.pmlEIzy()*delt;
 
 		f.pmlEIzx() = f.pmlHBz()*f.pmlEIzx() + f.pmlHCz()/delx*(f.getNeighborMax(2).Ex() - f.Ex());	
-		f.By() -= f.pmlHIzx()*delt;
+		f.By() -= f.pmlEIzx()*delt;
 	};
 };
 
@@ -808,25 +808,25 @@ struct PMLIx{
 template <typename scalar_type>
 struct PMLIx<ThreeD, scalar_type>{
 	// E convolution terms
-	scalar_type EIxx;
+	// scalar_type EIxx;
 	scalar_type EIxy;
 	scalar_type EIxz;
 
 	// H convolution terms
-	scalar_type HIxx;
+	// scalar_type HIxx;
 	scalar_type HIxy;
 	scalar_type HIxz;
 
 
 	PMLIx<ThreeD, scalar_type>()
-	: EIxx(0.0), EIxy(0.0), EIxz(0.0)
-	, HIxx(0.0), HIxy(0.0), HIxz(0.0) {};
+	: EIxy(0.0), EIxz(0.0)
+	, HIxy(0.0), HIxz(0.0) {};
 
 	// accessors
-	scalar_type & pmlEIxx() {return EIxx;};
+	// scalar_type & pmlEIxx() {return EIxx;};
 	scalar_type & pmlEIxy() {return EIxy;};
 	scalar_type & pmlEIxz() {return EIxz;};
-	scalar_type & pmlHIxx() {return HIxx;};
+	// scalar_type & pmlHIxx() {return HIxx;};
 	scalar_type & pmlHIxy() {return HIxy;};
 	scalar_type & pmlHIxz() {return HIxz;};
 };
@@ -936,12 +936,16 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 		EKx = K; ESx = S; EAx = A;
 		EBx = exp(-dt/eps0*(ESx/EKx + EAx));
 		ECx = (S==0 && A == 0) ? 0.0 : ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1.0);
+		// EBx = exp(-dt/eps0*EAx);
+		// ECx = (S==0 && A == 0) ? 0.0 : ESx/(ESx+EAx)*(EBx-1.0);
 	}
 
 	void setPMLParametersHx(double K, double S, double A, double dt){
 		HKx = K; HSx = S; HAx = A;
 		HBx = exp(-dt/eps0*(HSx/HKx + HAx));
 		HCx = (S==0 && A == 0) ? 0.0 : HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1.0);
+		// HBx = exp(-dt/eps0*HAx);
+		// HCx = (S==0 && A == 0) ? 0.0 : HSx/(HSx+HAx)*(HBx-1.0);
 	}
 
 
@@ -986,24 +990,24 @@ template <typename scalar_type>
 struct PMLIy<ThreeD, scalar_type>{
 	// E convolution terms
 	scalar_type EIyx;
-	scalar_type EIyy;
+	// scalar_type EIyy;
 	scalar_type EIyz;
 
 	// H convolution terms
 	scalar_type HIyx;
-	scalar_type HIyy;
+	// scalar_type HIyy;
 	scalar_type HIyz;
 
 	PMLIy<ThreeD, scalar_type>()
-	: EIyx(0.0), EIyy(0.0), EIyz(0.0)
-	, HIyx(0.0), HIyy(0.0), HIyz(0.0) {};
+	: EIyx(0.0), EIyz(0.0)
+	, HIyx(0.0), HIyz(0.0) {};
 
 	// accessors
 	scalar_type & pmlEIyx() {return EIyx;};
-	scalar_type & pmlEIyy() {return EIyy;};
+	// scalar_type & pmlEIyy() {return EIyy;};
 	scalar_type & pmlEIyz() {return EIyz;};
 	scalar_type & pmlHIyx() {return HIyx;};
-	scalar_type & pmlHIyy() {return HIyy;};
+	// scalar_type & pmlHIyy() {return HIyy;};
 	scalar_type & pmlHIyz() {return HIyz;};
 };
 
@@ -1174,24 +1178,24 @@ struct PMLIz<ThreeD, scalar_type>{
 	// E convolution terms
 	scalar_type EIzx;
 	scalar_type EIzy;
-	scalar_type EIzz;
+	// scalar_type EIzz;
 
 	// H convolution terms
 	scalar_type HIzx;
 	scalar_type HIzy;
-	scalar_type HIzz;
+	// scalar_type HIzz;
 
 	PMLIz<ThreeD, scalar_type>()
-	: EIzx(0.0), EIzy(0.0), EIzz(0.0)
-	, HIzx(0.0), HIzy(0.0), HIzz(0.0) {};
+	: EIzx(0.0), EIzy(0.0)
+	, HIzx(0.0), HIzy(0.0) {};
 
 	// accessors
 	scalar_type & pmlEIzx() {return EIzx;};
 	scalar_type & pmlEIzy() {return EIzy;};
-	scalar_type & pmlEIzz() {return EIzz;};
+	// scalar_type & pmlEIzz() {return EIzz;};
 	scalar_type & pmlHIzx() {return HIzx;};
 	scalar_type & pmlHIzy() {return HIzy;};
-	scalar_type & pmlHIzz() {return HIzz;};
+	// scalar_type & pmlHIzz() {return HIzz;};
 };
 
 

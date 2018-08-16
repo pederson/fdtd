@@ -594,13 +594,13 @@ struct DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>{
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
-		double Pxhold = f.Px();
+		auto Pxhold = f.Px();
 		f.Px() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Px()) + dt*(f.Jx()+c*f.Dx()));
 		f.Jx() = 1.0/(1.0+b+dt*c)*(-c*(Pxhold) + (f.Jx()+c*f.Dx()));
-		double Pyhold = f.Py();
+		auto Pyhold = f.Py();
 		f.Py() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Py()) + dt*(f.Jy()+c*f.Dy()));
 		f.Jy() = 1.0/(1.0+b+dt*c)*(-c*(Pyhold) + (f.Jy()+c*f.Dy()));
-		double Pzhold = f.Pz();
+		auto Pzhold = f.Pz();
 		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
 		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
 

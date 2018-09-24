@@ -287,7 +287,7 @@ struct YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy
 	YeeUpdateD<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 
@@ -419,7 +419,7 @@ struct YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy
 	YeeUpdateB<TEM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		auto hBy = FieldPolicy<fdtd::By>::get(f);
 		FieldPolicy<fdtd::By>::get(f) = TimePolicy::template get<fdtd::By>(f)
 				-TimePolicy::curl_coeff*dt/dx*(-1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ez, Dir::X>::get(f));

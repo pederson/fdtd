@@ -204,12 +204,12 @@ struct ConstantUpdateE<TEM>{
 	ConstantUpdateE<TEM>(double c): eps(eps0*c) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
 	};
 
 	template<class YeeCell>
-	void calculate(YeeCell & f){
+	void calculate(YeeCell && f){
 		ConstantCalculate(f.Dz(), f.Ez(), eps);
 	};
 };
@@ -299,7 +299,7 @@ struct ConstantUpdateH<TEM>{
 	ConstantUpdateH<TEM>(double c): mu(mu0*c) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		ConstantUpdate(f.Hy(), f.By(), mu);
 	};
 };

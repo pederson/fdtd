@@ -77,34 +77,29 @@ enum class Orientation : char{
   MAX
 };
 
-struct Field{};
+struct Field{typedef std::array<float, 3> offset_type;};
 
   struct EType : public Field{
     static const Orientation neighb_side = Orientation::MAX;
     static const FieldType field_type = FieldType::Electric;
   };
-    struct Ex : public EType{};
-    struct Ey : public EType{};
-    struct Ez : public EType{};
-    struct Dx : public EType{};
-    struct Dy : public EType{};
-    struct Dz : public EType{};
+    struct Ex : public EType{static constexpr offset_type off = {0.0, -0.5, -0.5};};
+    struct Ey : public EType{static constexpr offset_type off = {-0.5, 0.0, -0.5};};
+    struct Ez : public EType{static constexpr offset_type off = {-0.5, -0.5, 0.0};};
+    struct Dx : public EType{static constexpr offset_type off = Ex::off;};
+    struct Dy : public EType{static constexpr offset_type off = Ey::off;};
+    struct Dz : public EType{static constexpr offset_type off = Ez::off;};
 
   struct HType : public Field{
     static const Orientation neighb_side = Orientation::MIN;
     static const FieldType field_type = FieldType::Magnetic;
   };
-    struct Hx : public HType{};
-    struct Hy : public HType{};
-    struct Hz : public HType{};
-    struct Bx : public HType{};
-    struct By : public HType{};
-    struct Bz : public HType{};
-
-
-
-
-
+    struct Hx : public HType{static constexpr offset_type off = {-0.5, 0.0, 0.0};};
+    struct Hy : public HType{static constexpr offset_type off = {0.0, -0.5, 0.0};};
+    struct Hz : public HType{static constexpr offset_type off = {0.0, 0.0, -0.5};};
+    struct Bx : public HType{static constexpr offset_type off = Hx::off;};
+    struct By : public HType{static constexpr offset_type off = Hy::off;};
+    struct Bz : public HType{static constexpr offset_type off = Hz::off;};
 
 
 }// end namespace fdtd

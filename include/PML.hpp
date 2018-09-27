@@ -139,7 +139,7 @@ struct UpdatePMLD<TEM, d>{
 	UpdatePMLD<TEM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/dx*(f.Hy() - f.getNeighborMin(0).Hy());	
 		f.Dz() += f.pmlHIxy()*dt;
 	};
@@ -321,7 +321,7 @@ struct UpdatePMLD<TEM, Dir::X>{
 	UpdatePMLD<TEM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 
@@ -433,7 +433,7 @@ struct UpdatePMLB<TEM, d>{
 	UpdatePMLB<TEM, d>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.pmlEIxz() = f.pmlHBx()*f.pmlEIxz() + f.pmlHCx()/dx*(f.getNeighborMax(0).Ez() - f.Ez());	
 		f.By() += f.pmlEIxz()*dt;
 	};
@@ -615,7 +615,7 @@ struct UpdatePMLB<TEM, Dir::X>{
 	UpdatePMLB<TEM, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 

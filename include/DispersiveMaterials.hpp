@@ -127,7 +127,7 @@ template <class FieldType>
 inline void ConstantCalculate(FieldType & Out, const FieldType & In, double c){Out=In*c;}
 
 
-template <class Mode>
+template <class Mode, bool forward = false>
 struct ConstantUpdateE{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
@@ -197,16 +197,24 @@ struct ConstantUpdateE<TM>{
 };
 
 // specialization for TEM
-template<>
-struct ConstantUpdateE<TEM>{
+template <bool forward>
+struct ConstantUpdateE<TEM, forward>{
 	double eps;
 
-	ConstantUpdateE<TEM>(double c): eps(eps0*c) {};
+	ConstantUpdateE<TEM, forward>(double c): eps(eps0*c) {};
 
-	template<class YeeCell>
-	void operator()(YeeCell && f){
+	// use SFINAE to enable this only when forward = false;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<!T, void>::type
+	operator()(YeeCell && f){
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
 	};
+
+	// use SFINAE to enable this only when forward = true;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<T, void>::type
+	operator() (YeeCell && f){ConstantCalculate(f.Dz(), f.Ez(), eps);};
+
 
 	template<class YeeCell>
 	void calculate(YeeCell && f){
@@ -240,7 +248,7 @@ struct ConstantUpdateE<TEM>{
 
 
 
-template <class Mode>
+template <class Mode, bool forward = false>
 struct ConstantUpdateH{
 	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 };
@@ -292,17 +300,44 @@ struct ConstantUpdateH<TM>{
 
 
 // specialization for TEM
-template<>
-struct ConstantUpdateH<TEM>{
+// template<>
+// struct ConstantUpdateH<TEM>{
+// 	double mu;
+
+// 	ConstantUpdateH<TEM>(double c): mu(mu0*c) {};
+
+// 	template<class YeeCell>
+// 	void operator()(YeeCell && f){
+// 		ConstantUpdate(f.Hy(), f.By(), mu);
+// 	};
+// };
+
+// specialization for TEM
+template <bool forward>
+struct ConstantUpdateH<TEM, forward>{
 	double mu;
 
-	ConstantUpdateH<TEM>(double c): mu(mu0*c) {};
+	ConstantUpdateH<TEM, forward>(double c): mu(mu0*c) {};
 
-	template<class YeeCell>
-	void operator()(YeeCell && f){
+	// use SFINAE to enable this only when forward = false;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<!T, void>::type
+	operator()(YeeCell && f){
 		ConstantUpdate(f.Hy(), f.By(), mu);
 	};
+
+	// use SFINAE to enable this only when forward = true;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<T, void>::type
+	operator() (YeeCell && f){ConstantCalculate(f.By(), f.Hy(), mu);};
+
+
+	template<class YeeCell>
+	void calculate(YeeCell && f){
+		ConstantCalculate(f.By(), f.Hy(), mu);
+	};
 };
+
 
 
 

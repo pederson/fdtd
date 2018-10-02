@@ -92,14 +92,14 @@ struct BD3 : public TemporalScheme {
 	static constexpr double curl_coeff = 24.0/23.0;
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
-	static decltype(auto) get(YeeCell & f){
+	static decltype(auto) get(const YeeCell & f){
 		return 21.0/23.0*FieldGetter::get(f) 
 			  +3.0/23.0*FieldGetter::get(f.BD(0))
 			  -1.0/23.0*FieldGetter::get(f.BD(1));
 	}
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
-	static void increment(YeeCell & f, ValueT hold){
+	static void increment(YeeCell && f, ValueT hold){
 		FieldGetter::get(f.BD(1)) = FieldGetter::get(f.BD(0));
 		FieldGetter::get(f.BD(0)) = hold;
 		return;

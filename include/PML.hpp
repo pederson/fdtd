@@ -829,6 +829,13 @@ struct PMLIx<ThreeD, scalar_type>{
 	// scalar_type & pmlHIxx() {return HIxx;};
 	scalar_type & pmlHIxy() {return HIxy;};
 	scalar_type & pmlHIxz() {return HIxz;};
+
+	// const scalar_type & pmlEIxx() const {return EIxx;};
+	const scalar_type & pmlEIxy() const {return EIxy;};
+	const scalar_type & pmlEIxz() const {return EIxz;};
+	// const scalar_type & pmlHIxx() const {return HIxx;};
+	const scalar_type & pmlHIxy() const {return HIxy;};
+	const scalar_type & pmlHIxz() const {return HIxz;};
 };
 
 
@@ -850,6 +857,10 @@ struct PMLIx<TE, scalar_type>{
 	scalar_type & pmlEIxx() {return EIxx;};
 	scalar_type & pmlEIxy() {return EIxy;};
 	scalar_type & pmlHIxz() {return HIxz;};
+
+	const scalar_type & pmlEIxx() const {return EIxx;};
+	const scalar_type & pmlEIxy() const {return EIxy;};
+	const scalar_type & pmlHIxz() const {return HIxz;};
 };
 
 
@@ -871,6 +882,10 @@ struct PMLIx<TM, scalar_type>{
 	scalar_type & pmlEIxz() {return EIxz;};
 	scalar_type & pmlHIxx() {return HIxx;};
 	scalar_type & pmlHIxy() {return HIxy;};
+
+	const scalar_type & pmlEIxz() const {return EIxz;};
+	const scalar_type & pmlHIxx() const {return HIxx;};
+	const scalar_type & pmlHIxy() const {return HIxy;};
 };
 
 
@@ -889,6 +904,9 @@ struct PMLIx<TEM, scalar_type>{
 	// accessors
 	scalar_type & pmlEIxz() {return EIxz;};
 	scalar_type & pmlHIxy() {return HIxy;};
+
+	const scalar_type & pmlEIxz() const {return EIxz;};
+	const scalar_type & pmlHIxy() const {return HIxy;};
 };
 
 
@@ -1009,6 +1027,13 @@ struct PMLIy<ThreeD, scalar_type>{
 	scalar_type & pmlHIyx() {return HIyx;};
 	// scalar_type & pmlHIyy() {return HIyy;};
 	scalar_type & pmlHIyz() {return HIyz;};
+
+	const scalar_type & pmlEIyx() const {return EIyx;};
+	// const scalar_type & pmlEIyy() const {return EIyy;};
+	const scalar_type & pmlEIyz() const {return EIyz;};
+	const scalar_type & pmlHIyx() const {return HIyx;};
+	// const scalar_type & pmlHIyy() const {return HIyy;};
+	const scalar_type & pmlHIyz() const {return HIyz;};
 };
 
 
@@ -1030,6 +1055,10 @@ struct PMLIy<TE, scalar_type>{
 	scalar_type & pmlEIyx() {return EIyx;};
 	scalar_type & pmlEIyy() {return EIyy;};
 	scalar_type & pmlHIyz() {return HIyz;};
+
+	const scalar_type & pmlEIyx() const {return EIyx;};
+	const scalar_type & pmlEIyy() const {return EIyy;};
+	const scalar_type & pmlHIyz() const {return HIyz;};
 };
 
 
@@ -1052,6 +1081,10 @@ struct PMLIy<TM, scalar_type>{
 	scalar_type & pmlEIyz() {return EIyz;};
 	scalar_type & pmlHIyx() {return HIyx;};
 	scalar_type & pmlHIyy() {return HIyy;};
+
+	const scalar_type & pmlEIyz() const {return EIyz;};
+	const scalar_type & pmlHIyx() const {return HIyx;};
+	const scalar_type & pmlHIyy() const {return HIyy;};
 };
 
 
@@ -1072,6 +1105,9 @@ struct PMLIy<TEM, scalar_type>{
 	// accessors
 	scalar_type & pmlEIyz() {return EIyz;};
 	scalar_type & pmlHIyy() {return HIyy;};
+
+	const scalar_type & pmlEIyz() const {return EIyz;};
+	const scalar_type & pmlHIyy() const {return HIyy;};
 };
 
 
@@ -1196,6 +1232,13 @@ struct PMLIz<ThreeD, scalar_type>{
 	scalar_type & pmlHIzx() {return HIzx;};
 	scalar_type & pmlHIzy() {return HIzy;};
 	// scalar_type & pmlHIzz() {return HIzz;};
+
+	const scalar_type & pmlEIzx() const {return EIzx;};
+	const scalar_type & pmlEIzy() const {return EIzy;};
+	// const scalar_type & pmlEIzz() const {return EIzz;};
+	const scalar_type & pmlHIzx() const {return HIzx;};
+	const scalar_type & pmlHIzy() const {return HIzy;};
+	// const scalar_type & pmlHIzz() const {return HIzz;};
 };
 
 
@@ -1216,6 +1259,10 @@ struct PMLIz<TE, scalar_type>{
 	scalar_type & pmlEIzx() {return EIzx;};
 	scalar_type & pmlEIzy() {return EIzy;};
 	scalar_type & pmlHIzz() {return HIzz;};
+
+	const scalar_type & pmlEIzx() const {return EIzx;};
+	const scalar_type & pmlEIzy() const {return EIzy;};
+	const scalar_type & pmlHIzz() const {return HIzz;};
 };
 
 
@@ -1236,6 +1283,10 @@ struct PMLIz<TM, scalar_type>{
 	scalar_type & pmlEIzz() {return EIzz;};
 	scalar_type & pmlHIzx() {return HIzx;};
 	scalar_type & pmlHIzy() {return HIzy;};
+
+	const scalar_type & pmlEIzz() const {return EIzz;};
+	const scalar_type & pmlHIzx() const {return HIzx;};
+	const scalar_type & pmlHIzy() const {return HIzy;};
 };
 
 
@@ -1256,6 +1307,9 @@ struct PMLIz<TEM, scalar_type>{
 	// accessors
 	scalar_type & pmlEIzz() {return EIzz;};
 	scalar_type & pmlHIzy() {return HIzy;};
+
+	const scalar_type & pmlEIzz() const {return EIzz;};
+	const scalar_type & pmlHIzy() const {return HIzy;};
 };
 
 

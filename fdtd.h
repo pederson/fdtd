@@ -11,5 +11,6 @@
 #include "include/SurfaceQuantities.hpp"
 #include "include/BoundaryUpdates.hpp"
 #include "include/Source.hpp"
+#include "include/StaticFields.hpp"
 
 #endif

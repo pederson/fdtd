@@ -8,11 +8,12 @@
 
 namespace fdtd{
 
-
+// CellType is kept as a generic type so that it can accept
+// both lvalue and rvalue references
 template <typename Mode, typename CellType>
 struct MaterialPair{
 private:
-	typedef std::function<void(CellType &&)> function_type;
+	typedef std::function<void(CellType &)> function_type;
 	function_type 		mElectric;
 	function_type 		mMagnetic;
 
@@ -33,7 +34,7 @@ public:
 
 
 template <typename Mode, typename CellType>
-MaterialPair<Mode, CellType> make_material_pair(std::function<void(CellType&&)> e, std::function<void(CellType&&)> m){
+MaterialPair<Mode, CellType> make_material_pair(std::function<void(CellType &)> e, std::function<void(CellType &)> m){
 	return MaterialPair<Mode, CellType>(e,m);
 };
 

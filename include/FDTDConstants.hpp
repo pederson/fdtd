@@ -102,6 +102,26 @@ struct Field{typedef std::array<float, 3> offset_type;};
     struct Bz : public HType{static constexpr offset_type off = Hz::off;};
 
 
+// have to put this declaration here b/c c++14 and lower
+// have some issues with static constexpr...
+// it is fixed in c++17 but that isn't implemented here yet
+constexpr Field::offset_type Ex::off;
+constexpr Field::offset_type Ey::off;
+constexpr Field::offset_type Ez::off;
+
+constexpr Field::offset_type Dx::off;
+constexpr Field::offset_type Dy::off;
+constexpr Field::offset_type Dz::off;
+
+constexpr Field::offset_type Hx::off;
+constexpr Field::offset_type Hy::off;
+constexpr Field::offset_type Hz::off;
+
+constexpr Field::offset_type Bx::off;
+constexpr Field::offset_type By::off;
+constexpr Field::offset_type Bz::off;
+
+
 }// end namespace fdtd
 
 #endif

@@ -13,7 +13,7 @@ namespace fdtd{
 template <typename Mode, typename CellType>
 struct MaterialPair{
 private:
-	typedef std::function<void(CellType &)> function_type;
+	typedef std::function<void(std::add_rvalue_reference_t<CellType>)> function_type;
 	function_type 		mElectric;
 	function_type 		mMagnetic;
 
@@ -34,7 +34,7 @@ public:
 
 
 template <typename Mode, typename CellType>
-MaterialPair<Mode, CellType> make_material_pair(std::function<void(CellType &)> e, std::function<void(CellType &)> m){
+MaterialPair<Mode, CellType> make_material_pair(std::function<void(std::add_rvalue_reference_t<CellType>)> e, std::function<void(std::add_rvalue_reference_t<CellType>)> m){
 	return MaterialPair<Mode, CellType>(e,m);
 };
 

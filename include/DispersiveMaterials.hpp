@@ -141,7 +141,7 @@ struct ConstantUpdateE<ThreeD>{
 	ConstantUpdateE<ThreeD>(double c): eps(eps0*c) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		ConstantUpdate(f.Ex(), f.Dx(), eps);
 		ConstantUpdate(f.Ey(), f.Dy(), eps);
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
@@ -149,7 +149,7 @@ struct ConstantUpdateE<ThreeD>{
 
 
 	template<class YeeCell>
-	void calculate(YeeCell & f){
+	void calculate(YeeCell && f){
 		ConstantCalculate(f.Dx(), f.Ex(), eps);
 		ConstantCalculate(f.Dy(), f.Ey(), eps);
 		ConstantCalculate(f.Dz(), f.Ez(), eps);
@@ -279,7 +279,7 @@ struct ConstantUpdateH<ThreeD>{
 	ConstantUpdateH<ThreeD>(double c): mu(mu0*c) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		ConstantUpdate(f.Hx(), f.Bx(), mu);
 		ConstantUpdate(f.Hy(), f.By(), mu);
 		ConstantUpdate(f.Hz(), f.Bz(), mu);
@@ -421,7 +421,7 @@ struct ConductiveUpdateE<ThreeD>{
 	ConductiveUpdateE<ThreeD>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
 		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
 		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
@@ -445,7 +445,7 @@ struct ConductiveUpdateE<TE>{
 	ConductiveUpdateE<TE>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
 		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
 
@@ -468,7 +468,7 @@ struct ConductiveUpdateE<TM>{
 	ConductiveUpdateE<TM>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
 
 		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
@@ -488,7 +488,7 @@ struct ConductiveUpdateE<TEM>{
 	ConductiveUpdateE<TEM>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
 
 		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
@@ -533,7 +533,7 @@ struct LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>
 	LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = 2.0*Gamma::get(f)*dt;
 		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
 
@@ -568,7 +568,7 @@ struct LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>{
 	LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = 2.0*Gamma::get(f)*dt;
 		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
 
@@ -596,7 +596,7 @@ struct LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>{
 	LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = 2.0*Gamma::get(f)*dt;
 		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
 
@@ -627,7 +627,7 @@ struct LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>{
 	LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = 2.0*Gamma::get(f)*dt;
 		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
 
@@ -673,7 +673,7 @@ struct DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>{
 	DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
@@ -708,7 +708,7 @@ struct DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>{
 	DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
@@ -735,7 +735,7 @@ struct DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma>{
 	DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
@@ -765,7 +765,7 @@ struct DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>{
 	DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
@@ -822,7 +822,7 @@ struct MagnetizedDrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, 
 	MagnetizedDrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 
 		// proceeds in two steps
 		// 1) magnetic updated (implicit)
@@ -920,7 +920,7 @@ struct MagnetizedDrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, Magn
 	MagnetizedDrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 
@@ -989,7 +989,7 @@ struct MagnetizedDrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, Magn
 	MagnetizedDrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 
 
 		// FIXME: should incorporate static value into these constants somehow...
@@ -1063,7 +1063,7 @@ struct MagnetizedDrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, Mag
 	MagnetizedDrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		double b = Gamma::get(f)*dt;
 		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
 

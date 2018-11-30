@@ -82,7 +82,7 @@ struct BD1 : public TemporalScheme {
 	}
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
-	static void increment(YeeCell & f, ValueT hold){
+	static void increment(YeeCell && f, ValueT hold){
 		return;
 	}
 };
@@ -119,7 +119,7 @@ struct BD4 : public TemporalScheme {
 	}
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
-	static void increment(YeeCell & f, ValueT hold){
+	static void increment(YeeCell && f, ValueT hold){
 		FieldGetter::get(f.BD(2)) = FieldGetter::get(f.BD(1));
 		FieldGetter::get(f.BD(1)) = FieldGetter::get(f.BD(0));
 		FieldGetter::get(f.BD(0)) = hold;
@@ -191,7 +191,7 @@ struct YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePol
 	YeeUpdateD<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 
@@ -229,7 +229,7 @@ struct YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>
 	YeeUpdateD<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 
@@ -259,7 +259,7 @@ struct YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>
 	YeeUpdateD<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template <class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		update(f, dt, dx);
 	};
 
@@ -339,7 +339,7 @@ struct YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePol
 	YeeUpdateB<ThreeD, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		auto hBx = FieldPolicy<fdtd::Bx>::get(f);
 		FieldPolicy<fdtd::Bx>::get(f) = TimePolicy::template get<fdtd::Bx>(f)
 				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ez, Dir::Y>::get(f)
@@ -372,7 +372,7 @@ struct YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>
 	YeeUpdateB<TE, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		auto hBz = FieldPolicy<fdtd::Bz>::get(f);
 		FieldPolicy<fdtd::Bz>::get(f) = TimePolicy::template get<fdtd::Bz>(f)
 				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKx(f)*DifferencePolicy<fdtd::Ey, Dir::X>::get(f)
@@ -394,7 +394,7 @@ struct YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>
 	YeeUpdateB<TM, TimePolicy, PMLCoeffPolicy, FieldPolicy, DifferencePolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
 	template<class YeeCell>
-	void operator()(YeeCell & f){
+	void operator()(YeeCell && f){
 		auto hBx = FieldPolicy<fdtd::Bx>::get(f);
 		FieldPolicy<fdtd::Bx>::get(f) = TimePolicy::template get<fdtd::Bx>(f)
 				-TimePolicy::curl_coeff*dt/dx*(1.0/PMLCoeffPolicy::pmlHKy(f)*DifferencePolicy<fdtd::Ez, Dir::Y>::get(f));

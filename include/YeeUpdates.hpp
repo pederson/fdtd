@@ -7,6 +7,155 @@
 namespace fdtd{
 
 
+template <typename FieldGetter,
+		  typename RightGetter,
+		  typename LeftGetter>
+struct DifferenceOp{
+	template <class Object>
+	static decltype(auto) get(Object && o){
+		return (FieldGetter::get(RightGetter::get(o)) - FieldGetter::get(LeftGetter::get(o)));
+	}
+};
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
+
+
+template <Dir d, typename FieldGetter, 
+		  template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+struct CentralDifferenceTypedef{
+	typedef DifferenceOp<FieldGetter, 
+					     NeighborGetter<d, Orientation::MAX>, 
+					     NeighborGetter<d, Orientation::MIN>> type;
+};
+
+template <Dir d, typename FieldGetter, template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+using CentralDifferenceOperator = typename CentralDifferenceTypedef<d, FieldGetter, NeighborGetter>::type;
+
+
+template <Dir d, typename FieldGetter, 
+		  template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+struct ForwardDifferenceTypedef{
+	typedef DifferenceOp<FieldGetter, 
+					     NeighborGetter<d, Orientation::MAX>, 
+					     GetSelf> type;
+};
+
+template <Dir d, typename FieldGetter, template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+using ForwardDifferenceOperator = typename ForwardDifferenceTypedef<d, FieldGetter, NeighborGetter>::type;
+
+
+
+template <Dir d, typename FieldGetter, 
+		  template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+struct BackwardDifferenceTypedef{
+	typedef DifferenceOp<FieldGetter, 
+					     GetSelf, 
+					     NeighborGetter<d, Orientation::MIN>> type;
+};
+
+template <Dir d, typename FieldGetter, template<Dir, Orientation> class NeighborGetter = GetNeighbor>
+using BackwardDifferenceOperator = typename BackwardDifferenceTypedef<d, FieldGetter, NeighborGetter>::type;
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+// Define components of the Levi-Civita tensor
+template <Dir I, Dir J, Dir K>
+struct LeviCivita{
+	// Default, return 0
+	static constexpr decltype(auto) get(){return 0.0;};
+};
+
+template <> struct LeviCivita<Dir::X, Dir::Y, Dir::Z>{
+	static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Y, Dir::Z, Dir::X>{
+	static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Z, Dir::X, Dir::Y>{
+	static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Z, Dir::Y, Dir::X>{
+	static constexpr decltype(auto) get(){return -1.0;};
+};
+
+template <> struct LeviCivita<Dir::X, Dir::Z, Dir::Y>{
+	static constexpr decltype(auto) get(){return -1.0;};
+};
+
+template <> struct LeviCivita<Dir::Y, Dir::X, Dir::Z>{
+	static constexpr decltype(auto) get(){return -1.0;};
+};
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+// Define components of the curl operator
+template <Dir I, Dir J, 
+		  typename FieldGetter, 
+		  template<Dir, typename> class DifferenceOperator>
+struct CurlOperator{
+	// Default, return 0
+	template <class Object>
+	static constexpr decltype(auto) get(Object && f, double delta_x){
+		return LeviCivita<MutuallyOrthogonal<I,J>::value,I,J>::get()*DifferenceOperator<MutuallyOrthogonal<I,J>::value,FieldGetter>::get(f)/delta_x;
+	};
+};
+
+// specializations for zero components
+template <typename FieldGetter, 
+		  template<Dir, typename> class DifferenceOperator>
+struct CurlOperator<Dir::X, Dir::X, FieldGetter, DifferenceOperator>
+{
+	template <class Object>
+	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
+};
+
+template <typename FieldGetter, 
+		  template<Dir, typename> class DifferenceOperator>
+struct CurlOperator<Dir::Y, Dir::Y, FieldGetter, DifferenceOperator>
+{
+	template <class Object>
+	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
+};
+
+template <typename FieldGetter, 
+		  template<Dir, typename> class DifferenceOperator>
+struct CurlOperator<Dir::Z, Dir::Z, FieldGetter, DifferenceOperator>
+{
+	template <class Object>
+	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
+};
+
 
 
 //************************************************************
@@ -461,6 +610,51 @@ inline void updateDz3D(FieldType & Dz, const FieldType & Hx, const FieldType & H
 }
 
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+// Atomic Yee updates for a given component along any given direction
+// does not include PML or non-standard time-stepping schemes
+template <typename EMField,
+		  Dir d,
+		  template <typename> class FieldPolicy = GetField>
+struct YeeUpdate{
+private:
+	static_assert(std::is_base_of<Field, EMField>::value, "YeeUpdate needs a valid EMField");
+	double dt, dx;
+
+	template <Dir dd, typename FieldGetter>
+	struct BDOTypedef{typedef BackwardDifferenceOperator<dd, FieldGetter, GetNeighbor> type;};
+	template <Dir dd, typename FieldGetter>
+	using BDO = typename BDOTypedef<dd, FieldGetter>::type;
+
+	template <Dir dd, typename FieldGetter>
+	struct FDOTypedef{typedef ForwardDifferenceOperator<dd, FieldGetter, GetNeighbor> type;};
+	template <Dir dd, typename FieldGetter>
+	using FDO = typename FDOTypedef<dd, FieldGetter>::type;
+
+public:
+
+
+	YeeUpdate<EMField, d, FieldPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+
+	template<class YeeCell, bool C = IsElectric<EMField>::value>
+	typename std::enable_if<C==true,void>::type 
+	operator()(YeeCell && f){
+		FieldPolicy<EMField>::get(f) += dt*CurlOperator<FieldDir<EMField>::value, MutuallyOrthogonal<FieldDir<EMField>::value,d>::value, FieldPolicy<EMField>, BDO>::get(f, dx);
+	};
+
+	template<class YeeCell, bool C = IsElectric<EMField>::value>
+	typename std::enable_if<C==false,void>::type  
+	operator()(YeeCell && f){
+		FieldPolicy<EMField>::get(f) -= dt*CurlOperator<FieldDir<EMField>::value, MutuallyOrthogonal<FieldDir<EMField>::value,d>::value, FieldPolicy<EMField>, FDO>::get(f, dx);
+	};
+};
 
 
 

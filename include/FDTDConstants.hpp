@@ -71,6 +71,17 @@ enum class Dir : char{
   Z
 };
 
+template <Dir I, Dir J>
+struct MutuallyOrthogonal{};
+
+template <> struct MutuallyOrthogonal<Dir::X, Dir::Y>{static constexpr Dir value = Dir::Z;};
+template <> struct MutuallyOrthogonal<Dir::Y, Dir::X>{static constexpr Dir value = Dir::Z;};
+template <> struct MutuallyOrthogonal<Dir::X, Dir::Z>{static constexpr Dir value = Dir::Y;};
+template <> struct MutuallyOrthogonal<Dir::Z, Dir::X>{static constexpr Dir value = Dir::Y;};
+template <> struct MutuallyOrthogonal<Dir::Z, Dir::Y>{static constexpr Dir value = Dir::X;};
+template <> struct MutuallyOrthogonal<Dir::Y, Dir::Z>{static constexpr Dir value = Dir::X;};
+
+
 enum class Orientation : char{
     NONE,
   MIN = 0,
@@ -121,6 +132,60 @@ constexpr Field::offset_type Bx::off;
 constexpr Field::offset_type By::off;
 constexpr Field::offset_type Bz::off;
 
+
+
+template <typename EMField>
+struct FieldDir{
+  static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
+};
+
+template <> struct FieldDir<Dx>{static constexpr Dir value = Dir::X;};
+template <> struct FieldDir<Dy>{static constexpr Dir value = Dir::Y;};
+template <> struct FieldDir<Dz>{static constexpr Dir value = Dir::Z;};
+
+template <> struct FieldDir<Ex>{static constexpr Dir value = Dir::X;};
+template <> struct FieldDir<Ey>{static constexpr Dir value = Dir::Y;};
+template <> struct FieldDir<Ez>{static constexpr Dir value = Dir::Z;};
+
+template <> struct FieldDir<Bx>{static constexpr Dir value = Dir::X;};
+template <> struct FieldDir<By>{static constexpr Dir value = Dir::Y;};
+template <> struct FieldDir<Bz>{static constexpr Dir value = Dir::Z;};
+
+template <> struct FieldDir<Hx>{static constexpr Dir value = Dir::X;};
+template <> struct FieldDir<Hy>{static constexpr Dir value = Dir::Y;};
+template <> struct FieldDir<Hz>{static constexpr Dir value = Dir::Z;};
+
+
+
+template <typename EMField>
+struct IsElectric{
+  static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
+  static constexpr bool value = false;
+};
+
+template <> struct IsElectric<Dx>{static constexpr bool value = true;};
+template <> struct IsElectric<Dy>{static constexpr bool value = true;};
+template <> struct IsElectric<Dz>{static constexpr bool value = true;};
+
+template <> struct IsElectric<Ex>{static constexpr bool value = true;};
+template <> struct IsElectric<Ey>{static constexpr bool value = true;};
+template <> struct IsElectric<Ez>{static constexpr bool value = true;};
+
+
+
+template <typename EMField>
+struct IsMagnetic{
+  static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
+  static constexpr bool value = false;
+};
+
+template <> struct IsMagnetic<Bx>{static constexpr bool value = true;};
+template <> struct IsMagnetic<By>{static constexpr bool value = true;};
+template <> struct IsMagnetic<Bz>{static constexpr bool value = true;};
+
+template <> struct IsMagnetic<Hx>{static constexpr bool value = true;};
+template <> struct IsMagnetic<Hy>{static constexpr bool value = true;};
+template <> struct IsMagnetic<Hz>{static constexpr bool value = true;};
 
 }// end namespace fdtd
 

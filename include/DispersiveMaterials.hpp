@@ -134,21 +134,31 @@ struct ConstantUpdateE{
 
 
 // specialization for 3D
-template<>
-struct ConstantUpdateE<ThreeD>{
+template <bool forward>
+struct ConstantUpdateE<ThreeD, forward>{
 	double eps;
 
-	ConstantUpdateE<ThreeD>(double c): eps(eps0*c) {};
+	ConstantUpdateE<ThreeD, forward>(double c): eps(eps0*c) {};
 
-	template<class YeeCell>
-	void operator()(YeeCell && f){
+	// use SFINAE to enable this only when forward = false;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<!T, void>::type
+	operator()(YeeCell && f){
 		ConstantUpdate(f.Ex(), f.Dx(), eps);
 		ConstantUpdate(f.Ey(), f.Dy(), eps);
 		ConstantUpdate(f.Ez(), f.Dz(), eps);
 	};
 
+	// use SFINAE to enable this only when forward = true;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<T, void>::type
+	operator()(YeeCell && f){
+		ConstantCalculate(f.Dx(), f.Ex(), eps);
+		ConstantCalculate(f.Dy(), f.Ey(), eps);
+		ConstantCalculate(f.Dz(), f.Ez(), eps);
+	};
 
-	template<class YeeCell>
+	template <class YeeCell>
 	void calculate(YeeCell && f){
 		ConstantCalculate(f.Dx(), f.Ex(), eps);
 		ConstantCalculate(f.Dy(), f.Ey(), eps);
@@ -160,6 +170,7 @@ struct ConstantUpdateE<ThreeD>{
 	void operator()(YeeCell && f, double delta_t){
 		this->operator()(f);
 	};
+
 };
 
 // specialization for TE
@@ -296,17 +307,36 @@ struct ConstantUpdateH{
 
 
 // specialization for 3D
-template<>
-struct ConstantUpdateH<ThreeD>{
+template <bool forward>
+struct ConstantUpdateH<ThreeD, forward>{
 	double mu;
 
-	ConstantUpdateH<ThreeD>(double c): mu(mu0*c) {};
+	ConstantUpdateH<ThreeD, forward>(double c): mu(mu0*c) {};
 
-	template<class YeeCell>
-	void operator()(YeeCell && f){
+	// use SFINAE to enable this only when forward = false;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<!T, void>::type
+	operator()(YeeCell && f){
 		ConstantUpdate(f.Hx(), f.Bx(), mu);
 		ConstantUpdate(f.Hy(), f.By(), mu);
 		ConstantUpdate(f.Hz(), f.Bz(), mu);
+	};
+
+	// use SFINAE to enable this only when forward = true;
+	template <class YeeCell, bool T = forward>
+	typename std::enable_if<T, void>::type
+	operator() (YeeCell && f){
+		ConstantCalculate(f.Bx(), f.Hx(), mu);
+		ConstantCalculate(f.By(), f.Hy(), mu);
+		ConstantCalculate(f.Bz(), f.Hz(), mu);
+	};
+
+
+	template<class YeeCell>
+	void calculate(YeeCell && f){
+		ConstantCalculate(f.Bx(), f.Hx(), mu);
+		ConstantCalculate(f.By(), f.Hy(), mu);
+		ConstantCalculate(f.Bz(), f.Hz(), mu);
 	};
 
 	// allows the user to pass in a variable time-step
@@ -314,6 +344,7 @@ struct ConstantUpdateH<ThreeD>{
 	void operator()(YeeCell && f, double delta_t){
 		this->operator()(f);
 	};
+
 };
 
 

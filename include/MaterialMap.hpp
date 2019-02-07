@@ -2,6 +2,7 @@
 #define _MATERIALMAP_H
 
 #include <map>
+#include <functional>
 
 #include "FDTDConstants.hpp"
 #include "DispersiveMaterials.hpp"

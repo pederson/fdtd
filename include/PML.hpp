@@ -10,6 +10,30 @@ namespace fdtd{
 
 
 
+struct PMLOptions{
+private:
+	bool mConds[3][2];
+	std::size_t mNPML;
+
+public:
+
+	PMLOptions() {
+		for (int i=0; i<3; i++){
+			for (int j=0; j<1; j++) mConds[i][j] = false;
+		}
+	}
+
+	template <Dir d, Orientation o>
+	bool & get() {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+	bool & get(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+	bool & operator()(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};	
+};
+
+
+
+
 template<typename Mode, typename scalar_type> class StoredPMLx;
 template<typename Mode, typename scalar_type> class StoredPMLy;
 template<typename Mode, typename scalar_type> class StoredPMLz;	

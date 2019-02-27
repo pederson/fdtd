@@ -77,6 +77,16 @@ struct YeeFields<ThreeD, scalar_type, ContainerT>: public YeeFieldData<ThreeD, s
 	const scalar_type & By() const {return std::get<1>(BaseT::B);};
 	const scalar_type & Bz() const {return std::get<2>(BaseT::B);};
 
+
+	// templated call
+	template <Dir d>
+	scalar_type & E() const {return std::get<static_cast<char>(d)>(BaseT::E);};
+	template <Dir d>
+	scalar_type & D() const {return std::get<static_cast<char>(d)>(BaseT::D);};
+	template <Dir d>
+	scalar_type & H() const {return std::get<static_cast<char>(d)>(BaseT::H);};
+	template <Dir d>
+	scalar_type & B() const {return std::get<static_cast<char>(d)>(BaseT::B);};
 };
 
 

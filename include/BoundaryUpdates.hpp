@@ -3,6 +3,7 @@
 
 #include "FDTDConstants.hpp"
 #include "YeeUpdates.hpp"
+#include "DefaultInterfaces.hpp"
 
 namespace fdtd{
 
@@ -13,276 +14,462 @@ enum class Boundary : char {
 	BlochPeriodic,
 	PEC,
 	PMC,
+	Symmetric,
+	Antisymmetric,
 	Parallel
 };
 
 
-template <Boundary b, class Mode, Dir d, Orientation o, template <typename> class FieldPolicy = GetField>
-struct UpdateBoundaryD{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-	
+struct BoundaryOptions{
+private:
+	Boundary mConds[3][2];
+public:
+
+	BoundaryOptions() {
+		for (int i=0; i<3; i++){
+			for (int j=0; j<1; j++) mConds[i][j] = Boundary::PEC;
+		}
+	}
+
+	template <Dir d, Orientation o>
+	Boundary & get() {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+	Boundary & get(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+	Boundary & operator()(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};	
+
+
+	// void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+	// 	for (auto i=0; i<ntabs; i++) os << "\t" ;
+	// 	os << "<BoundaryOptions>" << std::endl;
+	// 	for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+	// 	os << "<Center>" << m_center << "</Center>" << std::endl;
+	// 	for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+	// 	os << "<Radius>" << m_radius << "</Radius>" << std::endl ;
+	// 	for (auto i=0; i<ntabs; i++) os << "\t" ;
+	// 	os << "</BoundaryOptions>" << std::endl;
+	// }
 };
 
-template <Boundary b, class Mode, Dir d, Orientation o, template <typename> class FieldPolicy = GetField>
-struct UpdateBoundaryB{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-	
+
+
+//************************************************************
+//************************************************************
+//********************* PEC BOUNDARY *************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+template <class Mode, Dir d, Orientation o, class IndexableObject>
+struct UpdateBoundaryPECD{
+private:
+	IndexableObject * mIdxObj;
+
+public:
+	UpdateBoundaryPECD(IndexableObject & idx_obj): mIdxObj(&idx_obj) {};
+
+	void operator()(){
+		// do nothing
+	};
+
+	// static void update(){
+	// };
 };
 
+template <class Mode, Dir d, Orientation o, class IndexableObject>
+struct UpdateBoundaryPECB{
+private:
+	IndexableObject * mIdxObj;
+
+public:
+	UpdateBoundaryPECB(IndexableObject & idx_obj): mIdxObj(&idx_obj) {};
+
+	void operator()(){
+		// do nothing
+	};
+
+	// static void update(){
+	// };
+};
+
+//************************************************************
+//************************************************************
+//********************* PMC BOUNDARY *************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
+// template <class Mode, Dir d, Orientation o, class IndexableObject>
+// struct UpdateBoundaryPMCB{
+// private:
+// 	std::array<std::size_t, Mode::dim> mDims;
+// 	IndexableObject * mIdxObj;
 
-// // specialization for 3D, periodic
-// template <>
-// struct UpdateBoundary<Periodic, ThreeD, Dir::X, Orientation::MIN>{
-// 	double dt, dx;
+// 	template <Orientation T = o>
+// 	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+// 	fixed_index(){return 0;};
 
-// 	UpdateBoundary<Periodic, ThreeD, Dir::X>(double deltat, double deltax): dt(deltat), dx(deltax) {};
+// 	template <Orientation T = o>
+// 	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+// 	fixed_index(){return mDims[static_cast<char>(d)]-1;};
 
-// 	template <class YeeCell>
-// 	void operator()(YeeCell & f,
-// 					double kx, double ky, double kz,
-// 					double Lx, double Ly, double Lz){
-// 		update(f, dt, dx, kx, ky, kz, Lx, Ly, Lz);
+
+// 	template <Orientation T = o>
+// 	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+// 	opp_index(){return 0;};
+
+// 	template <Orientation T = o>
+// 	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+// 	opp_index(){return mDims[static_cast<char>(d)]-1;};
+
+// 	template <typename CellType, Orientation T = o>
+// 	typename std::enable_if<T == Orientation::MAX, CellType>::type &
+// 	get_neighbor(CellType && t){return t.getNeighborMax(static_cast<char>(d));};
+
+// 	template <typename CellType, Orientation T = o>
+// 	typename std::enable_if<T == Orientation::MIN, CellType>::type &
+// 	get_neighbor(CellType && t){return t.getNeighborMin(static_cast<char>(d));};
+
+// 	template <class EMField, std::size_t... Idx>
+// 	void apply_impl(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds, std::index_sequence<Idx...>){
+// 		GetField<EMField>::get(idxobj(inds[Idx]...)) = 0;
+// 	}
+
+// 	template <class M = Mode>
+// 	typename std::enable_if<std::is_same<M, ThreeD>::value, void>
+// 	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+// 		apply_impl<Hx>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 		apply_impl<Hz>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 	}
+
+// 	template <class M = Mode>
+// 	typename std::enable_if<std::is_same<M, TM>::value, void>
+// 	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+// 		apply_impl<Hx>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 	}
+
+// 	template <class M = Mode>
+// 	typename std::enable_if<std::is_same<M, TE>::value, void>
+// 	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+// 		apply_impl<Hz>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 	}
+
+// 	template <class M = Mode>
+// 	typename std::enable_if<std::is_same<M, TEM>::value, void>
+// 	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+// 		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+// 	}
+
+// public:
+// 	UpdateBoundaryPMCB(IndexableObject & idx_obj): mIdxObj(&idx_obj) {};
+
+// 	void operator()(){
+// 		// starting inds
+// 		std::array<std::size_t, Mode::dim> idx, opp_idx;
+// 		idx[static_cast<char>(d)] = fixed_index();
+// 		opp_idx[static_cast<char>(d)] = opp_index();
+		
+
+// 		// which dimensions are the outer dimensions
+// 		std::array<std::size_t, Mode::dim-1> odims;
+// 		int dout = 0;
+// 		for (auto i=0; i<Mode::dim; i++){
+// 			if (i == static_cast<char>(d)) continue;
+// 			odims[dout] = i;
+// 			dout++;
+// 		}
+
+// 		// the sizes of the outer dimensions
+// 		std::array<std::size_t, Mode::dim-1> odsizes;
+// 		for (auto i=0; i<Mode::dim-1; i++){
+// 			odsizes[i] = mDims[odims[i]];
+// 		}
+
+// 		std::array<std::size_t, Mode::dim-1> odidx;
+// 		for (auto i=0; i<Mode::dim-1; i++) odidx[i] = 0;
+
+// 		// need to loop over Mode::dim-1 dimensions
+// 		// outer loop over indices of other dimensions
+// 		while (odidx[0]<odsizes[0]){
+// 			for (auto i=0; i<Mode::dim-1; i++) {
+// 				idx[odims[i]] = odidx[i];
+// 				opp_idx[odims[i]] = odidx[i];
+// 			}
+
+// 			apply_update(mIdxObj, idx, opp_idx);
+
+// 			// advance odidx
+// 			int dd = odidx.size()-1;
+// 			while (dd > 0){
+// 				odidx[dd]++;
+// 				odidx[dd-1] += odidx[dd]/odims[dd];
+// 				odidx[dd] = odidx[dd]%odims[dd];
+// 				dd--;
+// 			}
+// 		}
 // 	};
 
-// 	template <class YeeCell>
-// 	static void update(YeeCell & f, double delt, double delx,
-// 					   double kx, double ky, double kz,
-// 					   double Lx, double Ly, double Lz){
-
-// 		std::complex<double> ph = exp(1i*(kx*Lx + ky*Ly + kz*Lz));
-
-// 		// x direction
-// 		f.pmlHIxz() = f.pmlEBx()*f.pmlHIxz() + f.pmlECx()/delx*(f.Hz() - f.getNeighborMin(0).Hz());
-// 		f.Dy() -= f.pmlHIxz()*delt;
-
-// 		f.pmlHIxy() = f.pmlEBx()*f.pmlHIxy() + f.pmlECx()/delx*(f.Hy() - f.getNeighborMin(0).Hy());
-// 		f.Dz() += f.pmlHIxy()*delt;
-// 	};
+// 	// static void update(){
+// 	// };
 // };
 
 
 
-
-
 //************************************************************
 //************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-// Define difference operators for boundaries
-template <typename EMField, Dir d, 
-		  typename FieldGetter = GetField<EMField>, 
-		  typename NeighborGetter = GetNeighbor<d, EMField::neighb_side>,
-		  FieldType F = EMField::field_type,
-		  Boundary b = Boundary::NONE,
-		  typename ...Args>
-struct BoundaryDifferenceOperator{
-	static_assert(std::is_same<Field, EMField>::value, "BoundaryDifferenceOperator needs a valid EMField");
-};
-
-
-//************************************************************
-//************************************************************
-//************************************************************
+//***************** PERIODIC BOUNDARY ************************
 //************************************************************
 //************************************************************
 //************************************************************
 
-// Define PEC difference operator
+template <class Mode, Dir d, Orientation o, class IndexableObject>
+struct UpdateBoundaryPeriodicD{
+private:
+	std::array<std::size_t, Mode::dim> mDims;
+	IndexableObject * mIdxObj;
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+	fixed_index(){return 0;};
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+	fixed_index(){return mDims[static_cast<char>(d)]-1;};
 
 
-////////////// E //////////////
-template <typename EMField, Dir d, typename FieldGetter, typename NeighborGetter>
-struct BoundaryDifferenceOperator<EMField, d, FieldGetter, NeighborGetter, FieldType::Electric, Boundary::PEC>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {
-		return 0.0;
-	}
-};
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+	opp_index(){return 0;};
 
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+	opp_index(){return mDims[static_cast<char>(d)]-1;};
 
-////////////// H //////////////
-template <typename EMField, Dir d, typename FieldGetter, typename NeighborGetter>
-struct BoundaryDifferenceOperator<EMField, d, FieldGetter, NeighborGetter, FieldType::Magnetic, Boundary::PEC>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {
-		return 0.0;
-	}
-};
+	template <typename CellType, Orientation T = o>
+	typename std::enable_if<T == Orientation::MAX, CellType>::type &
+	get_neighbor(CellType && t){return t.getNeighborMax(static_cast<char>(d));};
 
-template <typename EMField, Dir d>
-struct PECDifferenceOperatorTypedef{
-	typedef BoundaryDifferenceOperator<EMField, d, 
-							   GetField<EMField>, 
-							   GetNeighbor<d, EMField::neighb_side>, 
-							   EMField::field_type, 
-							   Boundary::PEC> type;
-};
-template <typename EMField, Dir d>
-using PECDifferenceOperator = typename PECDifferenceOperatorTypedef<EMField, d>::type;
+	template <typename CellType, Orientation T = o>
+	typename std::enable_if<T == Orientation::MIN, CellType>::type &
+	get_neighbor(CellType && t){return t.getNeighborMin(static_cast<char>(d));};
 
-
-
-// define the temporal policy for PEC
-struct TemporalPEC : public TemporalScheme {
-	static constexpr double curl_coeff = 0.0;
-
-	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
-	static decltype(auto) get(YeeCell & f){
-		return 0.0;
+	template <class EMField, std::size_t... Idx>
+	void apply_impl(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds, std::index_sequence<Idx...>){
+		GetField<EMField>::get(get_neighbor(idxobj(inds[Idx]...))) = GetField<EMField>::get(idxobj(pinds[Idx]...));
 	}
 
-	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
-	static void increment(YeeCell & f, ValueT hold){
-		return;
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, ThreeD>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Ex>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Ey>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Ez>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
 	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TE>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Ex>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Ey>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TM>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Ez>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TEM>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Ez>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+public:
+	UpdateBoundaryPeriodicD(IndexableObject & idx_obj): mIdxObj(&idx_obj) {};
+
+	void operator()(){
+		// starting inds
+		std::array<std::size_t, Mode::dim> idx, opp_idx;
+		idx[static_cast<char>(d)] = fixed_index();
+		opp_idx[static_cast<char>(d)] = opp_index();
+		
+
+		// which dimensions are the outer dimensions
+		std::array<std::size_t, Mode::dim-1> odims;
+		int dout = 0;
+		for (auto i=0; i<Mode::dim; i++){
+			if (i == static_cast<char>(d)) continue;
+			odims[dout] = i;
+			dout++;
+		}
+
+		// the sizes of the outer dimensions
+		std::array<std::size_t, Mode::dim-1> odsizes;
+		for (auto i=0; i<Mode::dim-1; i++){
+			odsizes[i] = mDims[odims[i]];
+		}
+
+		std::array<std::size_t, Mode::dim-1> odidx;
+		for (auto i=0; i<Mode::dim-1; i++) odidx[i] = 0;
+
+		// need to loop over Mode::dim-1 dimensions
+		// outer loop over indices of other dimensions
+		while (odidx[0]<odsizes[0]){
+			for (auto i=0; i<Mode::dim-1; i++) {
+				idx[odims[i]] = odidx[i];
+				opp_idx[odims[i]] = odidx[i];
+			}
+
+			apply_update(mIdxObj, idx, opp_idx);
+
+			// advance odidx
+			int dd = odidx.size()-1;
+			while (dd > 0){
+				odidx[dd]++;
+				odidx[dd-1] += odidx[dd]/odims[dd];
+				odidx[dd] = odidx[dd]%odims[dd];
+				dd--;
+			}
+		}
+	};
+
+	// static void update(){
+	// };
 };
 
 
-// define the D update for PEC boundary
-template <class Mode, Dir d, Orientation o, template <typename> class FieldPolicy>
-struct UpdateBoundaryD<Boundary::PEC, Mode, d, o, FieldPolicy>{
-	double dt, dx;
 
-	template <typename YeeCell>
-	void operator()(YeeCell & f){
-		YeeUpdateD<Mode, TemporalPEC, PMLCoeff<false>, FieldPolicy, PECDifferenceOperator>::update(f, dt, dx);
+
+
+template <class Mode, Dir d, Orientation o, class IndexableObject>
+struct UpdateBoundaryPeriodicB{
+private:
+	std::array<std::size_t, Mode::dim> mDims;
+	IndexableObject * mIdxObj;
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+	fixed_index(){return 0;};
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+	fixed_index(){return mDims[static_cast<char>(d)]-1;};
+
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MAX, std::size_t>::type
+	opp_index(){return 0;};
+
+	template <Orientation T = o>
+	typename std::enable_if<T==Orientation::MIN, std::size_t>::type
+	opp_index(){return mDims[static_cast<char>(d)]-1;};
+
+	template <typename CellType, Orientation T = o>
+	typename std::enable_if<T == Orientation::MAX, CellType>::type &
+	get_neighbor(CellType && t){return t.getNeighborMax(static_cast<char>(d));};
+
+	template <typename CellType, Orientation T = o>
+	typename std::enable_if<T == Orientation::MIN, CellType>::type &
+	get_neighbor(CellType && t){return t.getNeighborMin(static_cast<char>(d));};
+
+	template <class EMField, std::size_t... Idx>
+	void apply_impl(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds, std::index_sequence<Idx...>){
+		GetField<EMField>::get(get_neighbor(idxobj(inds[Idx]...))) = GetField<EMField>::get(idxobj(pinds[Idx]...));
 	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, ThreeD>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Hx>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Hz>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TE>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Hz>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});		
+	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TM>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		
+		apply_impl<Hx>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+	template <class M = Mode>
+	typename std::enable_if<std::is_same<M, TEM>::value, void>
+	apply_update(IndexableObject & idxobj, std::array<std::size_t, Mode::dim> & inds, std::array<std::size_t, Mode::dim> & pinds){
+		apply_impl<Hy>(idxobj, inds, pinds, std::make_index_sequence<Mode::dim>{});
+	}
+
+public:
+	UpdateBoundaryPeriodicB(IndexableObject & idx_obj): mIdxObj(&idx_obj) {};
+
+	void operator()(){
+		// starting inds
+		std::array<std::size_t, Mode::dim> idx, opp_idx;
+		idx[static_cast<char>(d)] = fixed_index();
+		opp_idx[static_cast<char>(d)] = opp_index();
+		
+
+		// which dimensions are the outer dimensions
+		std::array<std::size_t, Mode::dim-1> odims;
+		int dout = 0;
+		for (auto i=0; i<Mode::dim; i++){
+			if (i == static_cast<char>(d)) continue;
+			odims[dout] = i;
+			dout++;
+		}
+
+		// the sizes of the outer dimensions
+		std::array<std::size_t, Mode::dim-1> odsizes;
+		for (auto i=0; i<Mode::dim-1; i++){
+			odsizes[i] = mDims[odims[i]];
+		}
+
+		std::array<std::size_t, Mode::dim-1> odidx;
+		for (auto i=0; i<Mode::dim-1; i++) odidx[i] = 0;
+
+		// need to loop over Mode::dim-1 dimensions
+		// outer loop over indices of other dimensions
+		while (odidx[0]<odsizes[0]){
+			for (auto i=0; i<Mode::dim-1; i++) {
+				idx[odims[i]] = odidx[i];
+				opp_idx[odims[i]] = odidx[i];
+			}
+
+			apply_update(mIdxObj, idx, opp_idx);
+
+			// advance odidx
+			int dd = odidx.size()-1;
+			while (dd > 0){
+				odidx[dd]++;
+				odidx[dd-1] += odidx[dd]/odims[dd];
+				odidx[dd] = odidx[dd]%odims[dd];
+				dd--;
+			}
+		}
+	};
+
+	// static void update(){
+	// };
 };
 
-// define the update for PEC boundary
-template <class Mode, Dir d, Orientation o, template <typename> class FieldPolicy>
-struct UpdateBoundaryB<Boundary::PEC, Mode, d, o, FieldPolicy>{
-	double dt, dx;
-
-	template <typename YeeCell>
-	void operator()(YeeCell & f){
-		YeeUpdateB<Mode, TemporalPEC, PMLCoeff<false>, FieldPolicy, PECDifferenceOperator>::update(f, dt, dx);
-	}
-};
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-// Define PMC difference operator
-
-
-// ////////////// E //////////////
-// template <typename EMField, Dir d, typename FieldGetter, typename NeighborGetter>
-// struct BoundaryDifferenceOperator<EMField, d, FieldGetter, NeighborGetter, FieldType::Electric, Boundary::PMC>{
-// 	template <class YeeCell>
-// 	static decltype(auto) get(YeeCell & f) {
-// 		return 0.0;
-// 	}
-// };
-
-
-// ////////////// H //////////////
-// template <typename EMField, Dir d, typename FieldGetter, typename NeighborGetter>
-// struct BoundaryDifferenceOperator<EMField, d, FieldGetter, NeighborGetter, FieldType::Magnetic, Boundary::PMC>{
-// 	template <class YeeCell>
-// 	static decltype(auto) get(YeeCell & f) {
-// 		return 0.0;
-// 	}
-// };
-
-// template <typename EMField, Dir d>
-// struct PMCDifferenceOperatorTypedef{
-// 	typedef BoundaryDifferenceOperator<EMField, d, 
-// 							   GetField<EMField>, 
-// 							   GetNeighbor<d, EMField::neighb_side>, 
-// 							   EMField::field_type, 
-// 							   Boundary::PMC> type;
-// };
-// template <typename EMField, Dir d>
-// using PMCDifferenceOperator = typename PMCDifferenceOperatorTypedef<EMField, d>::type;
-
-
-
-// // define the temporal policy for PMC
-// struct TemporalPMC : public TemporalScheme {
-// 	static constexpr double curl_coeff = 0.0;
-
-// 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
-// 	static decltype(auto) get(YeeCell & f){
-// 		return 0.0;
-// 	}
-
-// 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
-// 	static void increment(YeeCell & f, ValueT hold){
-// 		return;
-// 	}
-// };
-
-
-// // define the D update for PMC boundary
-// template <class Mode, Dir d, template <typename> class FieldPolicy>
-// struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MIN, FieldPolicy>{
-// 	double dt, dx;
-
-// 	template <typename YeeCell>
-// 	void operator()(YeeCell & f){
-// 		// do nothing
-// 	}
-// };
-
-// template <class Mode, Dir d, template <typename> class FieldPolicy>
-// struct UpdateBoundaryD<Boundary::PMC, Mode, d, Orientation::MAX, FieldPolicy>{
-// 	double dt, dx;
-
-// 	template <typename YeeCell>
-// 	void operator()(YeeCell & f){
-// 		// do nothing
-// 	}
-// };
-
-// // define the update for PMC boundary
-// template <class Mode, Dir d, Orientation o, template <typename> class FieldPolicy>
-// struct UpdateBoundaryB<Boundary::PMC, Mode, d, o, FieldPolicy>{
-// 	double dt, dx;
-
-// 	template <typename YeeCell>
-// 	void operator()(YeeCell & f){
-// 		YeeUpdateB<Mode, TemporalPMC, PMLCoeff<false>, FieldPolicy, PMCDifferenceOperator>::update(f, dt, dx);
-// 	}
-// };
 
 
 
 
 //************************************************************
 //************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-// Define periodic difference operator
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
+//************ BLOCH-PERIODIC BOUNDARY ***********************
 //************************************************************
 //************************************************************
 //************************************************************

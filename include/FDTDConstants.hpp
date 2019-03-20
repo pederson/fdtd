@@ -20,6 +20,49 @@ namespace Detail
     }
 }
 
+namespace Detail{
+
+  template <typename... Args>
+  struct type_list {};
+
+
+
+  // this does the implementation
+  template<typename TupleType, int I, template<typename> class Fctor>
+  struct for_each_tuple_type_struct {
+    template <typename... Args>
+    static void get(Args && ... args) {
+      //Call get() of Fctor
+      Fctor<std::tuple_element_t<I,TupleType>>::get(std::forward<Args>(args)...);
+      
+      //Continue Loop
+      for_each_tuple_type_struct<TupleType, I - 1, Fctor>::get(std::forward<Args>(args)...);
+    }
+  };
+
+  template<typename TupleType, template<typename> class Fctor>
+  struct for_each_tuple_type_struct<TupleType, 0, Fctor> {
+    template <typename... Args>
+    static void get(Args && ... args) {
+      // //Call get() of Fctor
+      Fctor<std::tuple_element_t<0,TupleType>>::get(std::forward<Args>(args)...);
+    }
+  };
+
+
+  // Fctor is a templated class with a single template parameter. 
+  // it is expected to contain a static function get() that accepts the same 
+  // number of arguments as are passed into this function
+  //
+  // Fctor<T>::get(Args...) is called for each type T in the tuple 
+  template<typename TupleType, template<typename> class Fctor, typename... Args>
+  void for_each_tuple_type(Args && ... args) {
+    for_each_tuple_type_struct<TupleType, std::tuple_size<TupleType>::value-1, Fctor>::get(std::forward<Args>(args)...);
+  };
+
+  
+}
+
 /*
 * Constexpr version of the square root
 * Return value:
@@ -65,10 +108,10 @@ enum class FieldType : char{
 };
 
 enum class Dir : char{
-    NONE,
   X = 0,
   Y,
-  Z
+  Z,
+  NONE
 };
 
 template <Dir I, Dir J>
@@ -83,9 +126,9 @@ template <> struct MutuallyOrthogonal<Dir::Y, Dir::Z>{static constexpr Dir value
 
 
 enum class Orientation : char{
-    NONE,
   MIN = 0,
-  MAX
+  MAX,
+  NONE
 };
 
 struct Field{typedef std::array<float, 3> offset_type;};
@@ -94,23 +137,71 @@ struct Field{typedef std::array<float, 3> offset_type;};
     static const Orientation neighb_side = Orientation::MAX;
     static const FieldType field_type = FieldType::Electric;
   };
-    struct Ex : public EType{static constexpr offset_type off = {0.0, -0.5, -0.5};};
-    struct Ey : public EType{static constexpr offset_type off = {-0.5, 0.0, -0.5};};
-    struct Ez : public EType{static constexpr offset_type off = {-0.5, -0.5, 0.0};};
-    struct Dx : public EType{static constexpr offset_type off = Ex::off;};
-    struct Dy : public EType{static constexpr offset_type off = Ey::off;};
-    struct Dz : public EType{static constexpr offset_type off = Ez::off;};
+    struct Ex : public EType{
+      static constexpr offset_type    off = {0.0, -0.5, -0.5};
+      static constexpr const char *   name = "Ex";
+      static constexpr Dir            direction = Dir::X;
+  };
+    struct Ey : public EType{
+      static constexpr offset_type    off = {-0.5, 0.0, -0.5};
+      static constexpr const char *   name = "Ey";
+      static constexpr Dir            direction = Dir::Y;
+  };
+    struct Ez : public EType{
+      static constexpr offset_type    off = {-0.5, -0.5, 0.0};
+      static constexpr const char *   name = "Ez";
+      static constexpr Dir            direction = Dir::Z;
+  };
+    struct Dx : public EType{
+      static constexpr offset_type    off = Ex::off;
+      static constexpr const char *   name = "Dx";
+      static constexpr Dir            direction = Dir::X;
+    };
+    struct Dy : public EType{
+      static constexpr offset_type    off = Ey::off;
+      static constexpr const char *   name = "Dy";
+      static constexpr Dir            direction = Dir::Y;
+    };
+    struct Dz : public EType{
+      static constexpr offset_type    off = Ez::off;
+      static constexpr const char *   name = "Dz";
+      static constexpr Dir            direction = Dir::Z;
+    };
 
   struct HType : public Field{
     static const Orientation neighb_side = Orientation::MIN;
     static const FieldType field_type = FieldType::Magnetic;
   };
-    struct Hx : public HType{static constexpr offset_type off = {-0.5, 0.0, 0.0};};
-    struct Hy : public HType{static constexpr offset_type off = {0.0, -0.5, 0.0};};
-    struct Hz : public HType{static constexpr offset_type off = {0.0, 0.0, -0.5};};
-    struct Bx : public HType{static constexpr offset_type off = Hx::off;};
-    struct By : public HType{static constexpr offset_type off = Hy::off;};
-    struct Bz : public HType{static constexpr offset_type off = Hz::off;};
+    struct Hx : public HType{
+      static constexpr offset_type    off = {-0.5, 0.0, 0.0};
+      static constexpr const char *   name = "Hx";
+      static constexpr Dir            direction = Dir::X;
+  };
+    struct Hy : public HType{
+      static constexpr offset_type    off = {0.0, -0.5, 0.0};
+      static constexpr const char *   name = "Hy";
+      static constexpr Dir            direction = Dir::Y;
+  };
+    struct Hz : public HType{
+      static constexpr offset_type    off = {0.0, 0.0, -0.5};
+      static constexpr const char *   name = "Hz";
+      static constexpr Dir            direction = Dir::Z;
+  };
+    struct Bx : public HType{
+      static constexpr offset_type    off = Hx::off;
+      static constexpr const char *   name = "Bx";
+      static constexpr Dir            direction = Dir::X;
+    };
+    struct By : public HType{
+      static constexpr offset_type    off = Hy::off;
+      static constexpr const char *   name = "By";
+      static constexpr Dir            direction = Dir::Y;
+    };
+    struct Bz : public HType{
+      static constexpr offset_type    off = Hz::off;
+      static constexpr const char *   name = "Bz";
+      static constexpr Dir            direction = Dir::Z;
+    };
 
 
 // have to put this declaration here b/c c++14 and lower
@@ -134,58 +225,71 @@ constexpr Field::offset_type Bz::off;
 
 
 
+// helper structs to easily access field data
 template <typename EMField>
 struct FieldDir{
   static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
+  static constexpr Dir value = EMField::direction;
 };
-
-template <> struct FieldDir<Dx>{static constexpr Dir value = Dir::X;};
-template <> struct FieldDir<Dy>{static constexpr Dir value = Dir::Y;};
-template <> struct FieldDir<Dz>{static constexpr Dir value = Dir::Z;};
-
-template <> struct FieldDir<Ex>{static constexpr Dir value = Dir::X;};
-template <> struct FieldDir<Ey>{static constexpr Dir value = Dir::Y;};
-template <> struct FieldDir<Ez>{static constexpr Dir value = Dir::Z;};
-
-template <> struct FieldDir<Bx>{static constexpr Dir value = Dir::X;};
-template <> struct FieldDir<By>{static constexpr Dir value = Dir::Y;};
-template <> struct FieldDir<Bz>{static constexpr Dir value = Dir::Z;};
-
-template <> struct FieldDir<Hx>{static constexpr Dir value = Dir::X;};
-template <> struct FieldDir<Hy>{static constexpr Dir value = Dir::Y;};
-template <> struct FieldDir<Hz>{static constexpr Dir value = Dir::Z;};
-
-
 
 template <typename EMField>
 struct IsElectric{
   static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
-  static constexpr bool value = false;
+  static constexpr bool value = (EMField::field_type == FieldType::Electric);
 };
-
-template <> struct IsElectric<Dx>{static constexpr bool value = true;};
-template <> struct IsElectric<Dy>{static constexpr bool value = true;};
-template <> struct IsElectric<Dz>{static constexpr bool value = true;};
-
-template <> struct IsElectric<Ex>{static constexpr bool value = true;};
-template <> struct IsElectric<Ey>{static constexpr bool value = true;};
-template <> struct IsElectric<Ez>{static constexpr bool value = true;};
-
-
 
 template <typename EMField>
 struct IsMagnetic{
   static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
-  static constexpr bool value = false;
+  static constexpr bool value = (EMField::field_type == FieldType::Magnetic);
 };
 
-template <> struct IsMagnetic<Bx>{static constexpr bool value = true;};
-template <> struct IsMagnetic<By>{static constexpr bool value = true;};
-template <> struct IsMagnetic<Bz>{static constexpr bool value = true;};
 
-template <> struct IsMagnetic<Hx>{static constexpr bool value = true;};
-template <> struct IsMagnetic<Hy>{static constexpr bool value = true;};
-template <> struct IsMagnetic<Hz>{static constexpr bool value = true;};
+
+
+
+
+// define field components for different modes
+template <typename Mode>
+struct FieldComponents{
+  static_assert(std::is_base_of<EMMode, Mode>::value, "Mode must be a valid EMMode");
+};
+
+template <> struct FieldComponents<ThreeD>{
+  typedef std::tuple<Ex, Ey, Ez>          electric;
+  typedef std::tuple<Hx, Hy, Hz>          magnetic;
+
+  typedef std::tuple<Dx, Dy, Dz>          electric_flux;
+  typedef std::tuple<Bx, By, Bz>          magnetic_flux;
+};
+
+template <> struct FieldComponents<TE>{
+  typedef std::tuple<Ex, Ey>   electric;
+  typedef std::tuple<Hz>       magnetic;
+
+  typedef std::tuple<Dx, Dy>   electric_flux;
+  typedef std::tuple<Bz>       magnetic_flux;
+};
+
+template <> struct FieldComponents<TM>{
+  typedef std::tuple<Ez>       electric;
+  typedef std::tuple<Hx, Hy>   magnetic;
+
+  typedef std::tuple<Dz>       electric_flux;
+  typedef std::tuple<Bx, By>   magnetic_flux;
+};
+
+template <> struct FieldComponents<TEM>{
+  typedef std::tuple<Ez>       electric;
+  typedef std::tuple<Hy>       magnetic;
+
+  typedef std::tuple<Dz>       electric_flux;
+  typedef std::tuple<By>       magnetic_flux;
+};
+
+
+
+
 
 }// end namespace fdtd
 

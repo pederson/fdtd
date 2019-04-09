@@ -10,6 +10,11 @@
 namespace fdtd{
 
 
+template <typename T> struct NameArray{
+  static_assert(std::is_enum<T>::value, "NameArray can only be defined for enum classes!");
+};
+
+
 namespace Detail
 {
     double constexpr sqrtNewtonRaphson(double x, double curr, double prev)
@@ -86,6 +91,16 @@ static constexpr double imp0 = sqrt(mu0/eps0); /**< free space impedance */
 
 
 
+// template <typename T, typename std::enable_if<!std::is_enum<T>::value, void>::type>
+// struct NameOf{static constexpr const char * value = "Unnamed Enum";};
+
+
+// template <typename T, typename std::enable_if<!std::is_enum<T>::value, void>::type>
+// struct NameOf{static constexpr const char * value = "Unnamed";};
+
+
+// template <> struct NameOf<char>{static constexpr const char * value = "Unnamed";};
+
 struct EMMode{};
 struct TE : public EMMode{static const std::size_t dim=2;
                           static const std::size_t numE=2;
@@ -101,11 +116,24 @@ struct ThreeD : public EMMode{static const std::size_t dim=3;
                               static const std::size_t numH=3;};
 
 
+
+
+// template<> struct NameOf<TE>{static constexpr const char * value = "TE";};
+// template<> struct NameOf<TM>{static constexpr const char * value = "TM";};
+// template<> struct NameOf<TEM>{static constexpr const char * value = "TEM";};
+// template<> struct NameOf<ThreeD>{static constexpr const char * value = "ThreeD";};
+
 enum class FieldType : char{
   NONE,
   Electric,
   Magnetic
 };
+template <> struct NameArray<FieldType>{
+  static constexpr std::array<const char *, 3> value = {"NONE", "Electric", "Magnetic"};
+};
+constexpr std::array<const char *, 3> NameArray<FieldType>::value;
+
+
 
 enum class Dir : char{
   X = 0,
@@ -113,9 +141,20 @@ enum class Dir : char{
   Z,
   NONE
 };
+template <> struct NameArray<Dir>{
+  static constexpr std::array<const char *, 4> value = {"X", "Y", "Z", "NONE"};
+};
+constexpr std::array<const char *, 4> NameArray<Dir>::value;
+
+// template <Dir d>
+// struct NameOfDir{static constexpr const char * value = "NONE";};
+// template <> struct NameOfDir<Dir::X>{static constexpr const char * value = "X";};
+// template <> struct NameOfDir<Dir::Y>{static constexpr const char * value = "Y";};
+// template <> struct NameOfDir<Dir::Z>{static constexpr const char * value = "Z";};
+
 
 template <Dir I, Dir J>
-struct MutuallyOrthogonal{};
+struct MutuallyOrthogonal{static constexpr Dir value = Dir::NONE;};
 
 template <> struct MutuallyOrthogonal<Dir::X, Dir::Y>{static constexpr Dir value = Dir::Z;};
 template <> struct MutuallyOrthogonal<Dir::Y, Dir::X>{static constexpr Dir value = Dir::Z;};
@@ -125,11 +164,92 @@ template <> struct MutuallyOrthogonal<Dir::Z, Dir::Y>{static constexpr Dir value
 template <> struct MutuallyOrthogonal<Dir::Y, Dir::Z>{static constexpr Dir value = Dir::X;};
 
 
+template <Dir Idx1, Dir Idx2, Dir... Idxs>
+struct CrossAll{
+  static constexpr Dir value = MutuallyOrthogonal<Idx1, MutuallyOrthogonal<Idx2, Idxs...>::value>::value;
+};
+
+template <Dir Idx1, Dir Idx2>
+struct CrossAll<Idx1, Idx2>{
+  static constexpr Dir value = MutuallyOrthogonal<Idx1, Idx2>::value;
+};
+
+//************************************************************
+//************************************************************
+
+
+
+// template <Dir... Idxs>
+// struct DirectionsAreDistinct{
+//   static constexpr bool value = (CrossAll<Idxs...>::value == Dir::NONE);
+// };
+
+// template <Dir Idx1, Dir Idx2>
+// struct DirectionsAreDistinct<Idx1, Idx2>{
+//   static constexpr bool value = (MutuallyOrthogonal<Idx1, Idx2>::value != Dir::NONE);
+// };
+
+// generalized Levi-Civita
+// template <Dir... Idx>
+// struct LeviCivita{
+//   static constexpr int value = 
+// };
+
+// Define components of the Levi-Civita tensor
+template <Dir I, Dir J, Dir K>
+struct LeviCivita{
+  // Default, return 0
+  static constexpr int value = 0.0;
+  static constexpr decltype(auto) get(){return 0.0;};
+};
+
+template <> struct LeviCivita<Dir::X, Dir::Y, Dir::Z>{
+  static constexpr int value = 1.0;
+  static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Y, Dir::Z, Dir::X>{
+  static constexpr int value = 1.0;
+  static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Z, Dir::X, Dir::Y>{
+  static constexpr int value = 1.0;
+  static constexpr decltype(auto) get(){return 1.0;};
+};
+
+template <> struct LeviCivita<Dir::Z, Dir::Y, Dir::X>{
+  static constexpr int value = -1.0;
+  static constexpr decltype(auto) get(){return -1.0;};
+};
+
+template <> struct LeviCivita<Dir::X, Dir::Z, Dir::Y>{
+  static constexpr int value = -1.0;
+  static constexpr decltype(auto) get(){return -1.0;};
+};
+
+template <> struct LeviCivita<Dir::Y, Dir::X, Dir::Z>{
+  static constexpr int value = -1.0;
+  static constexpr decltype(auto) get(){return -1.0;};
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 enum class Orientation : char{
   MIN = 0,
   MAX,
   NONE
 };
+template <> struct NameArray<Orientation>{
+  static constexpr std::array<const char *, 3> value = {"MIN", "MAX", "NONE"};
+};
+constexpr std::array<const char *, 3> NameArray<Orientation>::value;
+
 
 struct Field{typedef std::array<float, 3> offset_type;};
 
@@ -222,6 +342,30 @@ constexpr Field::offset_type Hz::off;
 constexpr Field::offset_type Bx::off;
 constexpr Field::offset_type By::off;
 constexpr Field::offset_type Bz::off;
+
+
+template <FieldType ft, Dir d>
+struct FieldComponent{};
+
+template <> struct FieldComponent<FieldType::Electric, Dir::X>{typedef Ex type;};
+template <> struct FieldComponent<FieldType::Electric, Dir::Y>{typedef Ey type;};
+template <> struct FieldComponent<FieldType::Electric, Dir::Z>{typedef Ez type;};
+
+template <> struct FieldComponent<FieldType::Magnetic, Dir::X>{typedef Hx type;};
+template <> struct FieldComponent<FieldType::Magnetic, Dir::Y>{typedef Hy type;};
+template <> struct FieldComponent<FieldType::Magnetic, Dir::Z>{typedef Hz type;};
+
+
+template <FieldType ft, Dir d>
+struct FluxComponent{};
+
+template <> struct FluxComponent<FieldType::Electric, Dir::X>{typedef Dx type;};
+template <> struct FluxComponent<FieldType::Electric, Dir::Y>{typedef Dy type;};
+template <> struct FluxComponent<FieldType::Electric, Dir::Z>{typedef Dz type;};
+
+template <> struct FluxComponent<FieldType::Magnetic, Dir::X>{typedef Bx type;};
+template <> struct FluxComponent<FieldType::Magnetic, Dir::Y>{typedef By type;};
+template <> struct FluxComponent<FieldType::Magnetic, Dir::Z>{typedef Bz type;};
 
 
 

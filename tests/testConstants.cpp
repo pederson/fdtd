@@ -13,6 +13,7 @@
 using namespace fdtd;
 
 
+
 template <typename Field>
 struct PrintName{
 	static void get(){
@@ -51,6 +52,35 @@ int main(int argc, char * argv[]){
 	std::cout << "TEM: " << std::endl;
 	Detail::for_each_tuple_type<FieldComponents<TEM>::electric, PrintName>();
 	Detail::for_each_tuple_type<FieldComponents<TEM>::magnetic, PrintName>();
+	std::cout << "*************" << std::endl;
+
+
+
+	// std::cout << "Distinct Directions:" << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::X,Dir::X,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::X,Dir::Y,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::X,Dir::Z,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Y,Dir::X,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Y,Dir::Y,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Y,Dir::Z,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Z,Dir::X,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Z,Dir::Y,Dir::Z>::value << std::endl;
+	// std::cout << DirectionsAreDistinct<Dir::Z,Dir::Z,Dir::Z>::value << std::endl;
+
+	// std::cout << "*************" << std::endl;
+
+
+	std::cout << "Levi-Civita Tensor:" << std::endl;
+	std::cout << LeviCivita<Dir::X,Dir::X,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::X,Dir::Y,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::X,Dir::Z,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Y,Dir::X,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Y,Dir::Y,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Y,Dir::Z,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Z,Dir::X,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Z,Dir::Y,Dir::Z>::value << std::endl;
+	std::cout << LeviCivita<Dir::Z,Dir::Z,Dir::Z>::value << std::endl;
+
 	std::cout << "*************" << std::endl;
 
 

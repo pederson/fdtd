@@ -34,8 +34,26 @@ int main(int argc, char * argv[]){
 	std::vector<cell_type> v(50);
 	// std::vector<cell_type> ghost(50);
 
-	BoundaryData bd = make_pec_boundary<Mode, Dir::X, Orientation::MIN>(v.begin(), v.end());
+	BoundaryData bd_pec = make_pec_boundary<Mode, Dir::X, Orientation::MIN>(v.begin(), v.end());
+	bd_pec.print_summary();
 
+	BoundaryData bd_pmc = make_pmc_boundary<Mode, Dir::Y, Orientation::MIN>(v.begin(), v.end());
+	bd_pmc.print_summary();
+
+	BoundaryData bd_symm = make_symmetric_boundary<Mode, Dir::X, Orientation::MAX>(v.begin(), v.end());
+	bd_symm.print_summary();
+
+	BoundaryData bd_asymm = make_antisymmetric_boundary<Mode, Dir::Y, Orientation::MAX>(v.begin(), v.end());
+	bd_asymm.print_summary();
+
+
+	// periodic boundary
+	std::vector<cell_type> v_comm(50);
+
+	// bloch-periodic boundary
+
+
+	// parallel boundary
 
 	return 0;
 }

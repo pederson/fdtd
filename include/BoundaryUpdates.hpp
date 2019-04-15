@@ -23,6 +23,17 @@ enum class Boundary : char {
 	Parallel,
 	NONE
 };
+template <> struct NameArray<Boundary>{
+  static constexpr std::array<const char *, 8> value = {"Periodic", 
+													   "BlochPeriodic", 
+													   "PEC",
+													   "PMC",
+													   "Symmetric",
+													   "Antisymmetric",
+													   "Parallel", 
+													   "NONE"};};
+constexpr std::array<const char *, 8> NameArray<Boundary>::value;
+
 
 
 
@@ -161,7 +172,19 @@ public:
 				 std::function<void(void)> updateH)
 	: mType(b), mDir(d), mOr(o), mUpdateE(updateE), mUpdateH(updateH) 
 	{};
-	
+
+	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "<Boundary>" << std::endl;
+		for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+		os << "<Type>" << NameArray<Boundary>::value[static_cast<int>(mType)] << "</Type>" << std::endl;
+		for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+		os << "<Dir>" << NameArray<Dir>::value[static_cast<int>(mDir)] << "</Dir>" << std::endl ;
+		for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+		os << "<Orientation>" << NameArray<Orientation>::value[static_cast<int>(mOr)] << "</Orientation>" << std::endl ;
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "</Boundary>" << std::endl;
+	}
 };
 
 //***************************************************************
@@ -470,27 +493,151 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 
 
 
+// // an intermediate update struct that adapts the statically 
+// // polymorphic structs to a std::function in order to enable
+// // runtime polymorphism
+// //
+// // this is a generalized framework for this sort of behavior,
+// // but it might be more efficient to redefine the template 
+// // arguments depending on the situation. Either way, they all
+// // become a functor in the end
+// template <typename SourceIterator, typename DestIterator>
+// struct BoundaryUpdater{
+// private:
+// 	SourceIterator 		mSrcBegin, mSrcEnd;
+// 	DestIterator		mDestBegin, mDestEnd;
+// 	std::function<void(SourceIterator, DestIterator)>	mFunct; // takes two iterators and applies the update
+
+// public:
+// 	BoundaryUpdater(SourceIterator sBeg, SourceIterator sEnd,
+// 					DestIterator   dBeg, DestIterator 	dEnd,
+// 					std::function<void(SourceIterator, DestIterator)> f)
+// 	: mSrcBegin(sBeg), mSrcEnd(sEnd), mDestBegin(dBeg), mDestEnd(dEnd)
+// 	, mFunct(f)
+// 	{};
+
+// 	void update(){
+// 		for(auto it = std::make_pair(mSrcBegin, mDestBegin);
+// 			it.first != mSrcEnd ; 
+// 			it.first++, it.second++){
+// 			mFunct(it.first, it.second);
+// 		}
+// 	}
+
+// 	// turn this into a functor to enable runtime polymorphism
+// 	void operator()(void) {update();}; 
+// };
+
+
+// template <typename SourceIterator, typename DestIterator>
+// BoundaryUpdater<SourceIterator, DestIterator> make_boundary_updater(
+// 					SourceIterator sBeg, SourceIterator sEnd,
+// 					DestIterator   dBeg, DestIterator 	dEnd,
+// 					std::function<void(SourceIterator, DestIterator)> f){
+// 	return BoundaryUpdater<SourceIterator, DestIterator>(sBeg, sEnd, dBeg, dEnd, f);
+// }
 
 
 
-//************************************************************
-//************************************************************
-//************ BLOCH-PERIODIC BOUNDARY ***********************
-//************************************************************
-//************************************************************
-//************************************************************
+// // use the default mask
 
-// Define Bloch-periodic difference operator
+// // use the default decorator
+
+// ************************ FINISH ME
+// // helper function to create this structure without passing the data types explicitly
+// template <typename Mode, Dir d, Orientation o, typename Iterator>
+// BoundaryData make_periodic_boundary(Iterator begit, Iterator endit){
+// 	static_assert(d != Dir::NONE, "Must have a valid direction!");
+// 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
+
+// 	// source iterator
+// 	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+
+// 	// dest iterator
+// 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+
+// 	// single update
+// 	typedef SingleUpdate<Mode, Boundary::Periodic, d, o> 	SingleUpdateType;
+// 	SingleUpdateType s;
+
+// 	// function type
+// 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
+
+// 	// whole-boundary update
+// 	auto upE = make_periodic_boundary_updater(SourceIterator(begit), SourceIterator(endit),
+// 									 DestIterator(begit), DestIterator(endit),
+// 									 static_cast<FunctorType>(s));
+// 	auto upH = make_periodic_boundary_updater(SourceIterator(begit), SourceIterator(endit),
+// 									 DestIterator(begit), DestIterator(endit),
+// 									 static_cast<FunctorType>(s));
+
+// 	return BoundaryData(Boundary::Periodic, d, o, upE, upH);
+// };
 
 
-//************************************************************
-//************************************************************
-//**************** PARALLEL BOUNDARY *************************
-//************************************************************
-//************************************************************
-//************************************************************
 
-// Define parallel difference operator
+
+// //************************************************************
+// //************************************************************
+// //************ BLOCH-PERIODIC BOUNDARY ***********************
+// //************************************************************
+// //************************************************************
+// //************************************************************
+
+// // Define Bloch-periodic difference operator
+
+
+// //************************************************************
+// //************************************************************
+// //**************** PARALLEL BOUNDARY *************************
+// //************************************************************
+// //************************************************************
+// //************************************************************
+
+// // an intermediate update struct that adapts the statically 
+// // polymorphic structs to a std::function in order to enable
+// // runtime polymorphism
+// //
+// // this is a generalized framework for this sort of behavior,
+// // but it might be more efficient to redefine the template 
+// // arguments depending on the situation. Either way, they all
+// // become a functor in the end
+// template <typename ValueType, typename SourceIterator, typename DestIterator>
+// struct BufferBoundaryUpdater{
+// private:
+// 	SourceIterator 		mSrcBegin, mSrcEnd;
+// 	DestIterator		mDestBegin, mDestEnd;
+// 	std::function<void(SourceIterator, DestIterator)>	mFunct; // takes two iterators and applies the update
+// 	std::vector<ValueType> 		mBuffer;
+
+// public:
+// 	BufferBoundaryUpdater(SourceIterator sBeg, SourceIterator sEnd,
+// 					DestIterator   dBeg, DestIterator 	dEnd,
+// 					std::function<void(SourceIterator, DestIterator)> f)
+// 	: mSrcBegin(sBeg), mSrcEnd(sEnd), mDestBegin(dBeg), mDestEnd(dEnd)
+// 	, mFunct(f)
+// 	{};
+
+// 	void update(){
+// 		for(auto it = std::make_pair(mSrcBegin, mDestBegin);
+// 			it.first != mSrcEnd ; 
+// 			it.first++, it.second++){
+// 			mFunct(it.first, it.second);
+// 		}
+// 	}
+
+// 	// turn this into a functor to enable runtime polymorphism
+// 	void operator()(void) {update();}; 
+// };
+
+
+// template <typename SourceIterator, typename DestIterator>
+// BufferBoundaryUpdater<SourceIterator, DestIterator> make_boundary_updater(
+// 					SourceIterator sBeg, SourceIterator sEnd,
+// 					DestIterator   dBeg, DestIterator 	dEnd,
+// 					std::function<void(SourceIterator, DestIterator)> f){
+// 	return BufferBoundaryUpdater<SourceIterator, DestIterator>(sBeg, sEnd, dBeg, dEnd, f);
+// }
 
 
 }// end namespace fdtd

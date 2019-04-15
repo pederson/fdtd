@@ -815,20 +815,23 @@ struct LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>{
 
 
 struct DrudeUpdate{
-	template <typename T>
-	static void implicit_update(T& D, T& E, T& P, T& J,
-							   double eps_rel,
-							   double eps_0, 
-							   double drude_freq, 
-							   double gamma,
-							   double dt){
-		double b = gamma*dt;
-		double c = dt*drude_freq*drude_freq/eps_rel;
 
-		J = (J + c*(D - P))/(1.0+b+dt*c);
-		P += dt*J;
-		E = (D - P)/(eps_rel*eps_0);
-	}
+//////////////// implicit Euler (1st order) ////////////////////////
+	// // using implicit Euler (1st-order in time)
+	// template <typename T>
+	// static void implicit_update(T& D, T& E, T& P, T& J,
+	// 						   double eps_rel,
+	// 						   double eps_0, 
+	// 						   double drude_freq, 
+	// 						   double gamma,
+	// 						   double dt){
+	// 	double b = gamma*dt;
+	// 	double c = dt*drude_freq*drude_freq/eps_rel;
+
+	// 	J = (J + c*(D - P))/(1.0+b+dt*c);
+	// 	P += dt*J;
+	// 	E = (D - P)/(eps_rel*eps_0);
+	// }
 
 	template <typename T>
 	static void explicit_update(T& D, T& E, T& P, T& J,
@@ -844,6 +847,104 @@ struct DrudeUpdate{
 		J = (J - c*E)/(1.0+b);
 		D = eps_rel*eps_0*E + P;
 	}
+
+
+//////////////// Crank-Nicolson (2nd order) ////////////////////////
+
+	// // using Crank-Nicolson (2nd-order in time)
+	// template <typename T>
+	// static void implicit_update(T& D, T& E, T& P, T& J,
+	// 						   double eps_rel,
+	// 						   double eps_0, 
+	// 						   double drude_freq, 
+	// 						   double gamma,
+	// 						   double dt){
+	// 	double b = gamma*dt*0.5;
+	// 	double c = 0.5*dt*drude_freq*drude_freq/eps_rel;
+	// 	double d = 0.5*dt*drude_freq*drude_freq*eps_0;
+
+	// 	auto K1 = (1.0+b)*J + d*E + c*D;
+	// 	auto K2 = 0.5*dt*J + P;
+
+	// 	double a = 1+b+0.5*dt*c;
+
+	// 	J = 1.0/a * (K1 - c*K2);
+	// 	P = 1.0/a * (0.5*dt*K1 + (1.0+b)*K2);
+	// 	E = (D - P)/(eps_rel*eps_0);
+	// }
+
+	// template <typename T>
+	// static void explicit_update(T& D, T& E, T& P, T& J,
+	// 						   double eps_rel,
+	// 						   double eps_0, 
+	// 						   double drude_freq, 
+	// 						   double gamma,
+	// 						   double dt){
+	// 	double b = gamma*dt;
+	// 	double c = dt*drude_freq*drude_freq*eps_0;
+
+	// 	P = (-dt*J + (1.0+b)*P)/(1.0+b);
+	// 	J = (J - c*E)/(1.0+b);
+	// 	D = eps_rel*eps_0*E + P;
+	// }
+
+
+//////////////// Verlet (2nd order) ////////////////////////
+
+	template <typename T>
+	static void implicit_update(T& D, T& E, T& P, T& J,
+							   double eps_rel,
+							   double eps_0, 
+							   double drude_freq, 
+							   double gamma,
+							   double dt){
+		double b = gamma*dt*0.5;
+		double w = dt*drude_freq; // normalized plasma freq
+
+		// first update P to the level of D
+		P += dt*J;
+
+		// then update E to the level of D
+		E = (D - P)/(eps_rel*eps_0);
+
+		// finally update J a half step past D
+		J = J*(1.0-b)/(1.0+b) + w*w/dt*eps_0*E;
+		
+	}
+
+
+//////////////// Recursive Convolution (1st order) i.e. exponential time-stepping ////////////////////////
+
+	// template <typename T>
+	// static void implicit_update(T& D, T& E, T& P, T& J,
+	// 						   double eps_rel,
+	// 						   double eps_0, 
+	// 						   double drude_freq, 
+	// 						   double gamma,
+	// 						   double dt){
+		
+	// 	// P = I_1
+	// 	// J = I_2
+
+	// 	// normalized quantities
+	// 	double G = gamma*dt;
+	// 	double W = drude_freq*dt;
+
+	// 	double X_1 = eps_0*W*W/G;
+	// 	double X_2 = eps_0*(W/G)*(W/G)*(exp(-G)-1.0);
+
+	// 	double R_1 = 1.0;
+	// 	double R_2 = exp(-G);
+
+	// 	// update new J and P
+	// 	P = E*X_1 + R_1*P;
+	// 	J = E*X_2 + R_2*J;
+
+	// 	// update E with new values of J, P
+	// 	E = (D - R_1*P - R_2*J)/(eps_rel*eps_0 + X_1 + X_2);		
+
+	// }
+
 };
 
 template <class Mode, 

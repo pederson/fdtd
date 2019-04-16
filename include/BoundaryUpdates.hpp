@@ -7,6 +7,7 @@
 
 
 #include <functional>
+#include <complex>
 
 namespace fdtd{
 
@@ -47,6 +48,8 @@ struct Mask {
 	static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
 	static constexpr double value = 1;
 };
+// declare here for the linker if needed at runtime
+template <typename EMField, Boundary b, Dir d, Orientation o> constexpr double Mask<EMField, b, d, o>::value;
 
 
 
@@ -89,6 +92,10 @@ private:
 	
 
 public:
+
+	SingleUpdate() {};
+	template <typename... Args>
+	SingleUpdate(Args... init) : DecoratorPolicy(init...) {};
 
 	template <typename SourceIterator, typename DestIterator>
 	void update(SourceIterator sit, DestIterator dit){
@@ -196,9 +203,11 @@ public:
 // to access the correct value
 //
 // the dereference functor is expected to have the 
-// static function ::get()
+// static function ::get() which passes the base iterator
+// and the iterator itself. The DereferenceFunctor
+// can store data, which can be useful. 
 template <typename Iterator, typename DereferenceFunctor>
-struct DerivedIterator{
+struct DerivedIterator : public DereferenceFunctor{
 private:
 	Iterator mIt;
 public:
@@ -212,6 +221,9 @@ public:
 
 	// construction
 	DerivedIterator(Iterator it) : mIt(it) {};
+	// pass all extra constructor arguments on to the base class
+	template <typename... Args>
+	DerivedIterator(Iterator it, Args... init) : DereferenceFunctor(init...), mIt(it) {};
 
 	// copy-construct
 	DerivedIterator(const DerivedIterator & cit) : mIt(cit.mIt) {};
@@ -223,8 +235,8 @@ public:
 		return *this;
 	}
 
-	pointer operator->() const {return &DereferenceFunctor::get(mIt);};
-	reference operator*() const {return DereferenceFunctor::get(mIt);};
+	pointer operator->() {return &DereferenceFunctor::get(mIt, *this);};
+	reference operator*() {return DereferenceFunctor::get(mIt, *this);};
 
 	// increment operators
 	self_type operator++(){
@@ -263,7 +275,7 @@ public:
 template <Dir d>
 struct GetNeighborMin{
 	template <typename IteratorType>
-	static decltype(auto) get(IteratorType && it){return (*it).getNeighborMin(d);};
+	static decltype(auto) get(IteratorType && it, const GetNeighborMin & g){return (*it).getNeighborMin(d);};
 };
 
 
@@ -274,6 +286,20 @@ struct MinIteratorDef{
 template <typename Iterator, Dir d>
 using MinIterator = typename MinIteratorDef<Iterator, d>::type;
 
+
+template <Dir d>
+struct GetNeighborMax{
+	template <typename IteratorType>
+	static decltype(auto) get(IteratorType && it, const GetNeighborMax & g){return (*it).getNeighborMax(d);};
+};
+
+
+template <typename Iterator, Dir d>
+struct MaxIteratorDef{
+	typedef DerivedIterator<Iterator, GetNeighborMax<d>> type;
+};
+template <typename Iterator, Dir d>
+using MaxIterator = typename MaxIteratorDef<Iterator, d>::type;
 
 
 //***************************************************************
@@ -309,10 +335,10 @@ BoundaryData make_pec_boundary(Iterator begit, Iterator endit){
 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
 	// source iterator
-	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+	typedef Iterator 			SourceIterator;
 
 	// dest iterator
-	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
 	typedef SingleUpdate<Mode, Boundary::PEC, d, o> 	SingleUpdateType;
@@ -359,10 +385,10 @@ BoundaryData make_pmc_boundary(Iterator begit, Iterator endit){
 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
 	// source iterator
-	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+	typedef Iterator 			SourceIterator;
 
 	// dest iterator
-	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
 	typedef SingleUpdate<Mode, Boundary::PMC, d, o> 	SingleUpdateType;
@@ -409,10 +435,10 @@ BoundaryData make_symmetric_boundary(Iterator begit, Iterator endit){
 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
 	// source iterator
-	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+	typedef Iterator 			SourceIterator;
 
 	// dest iterator
-	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
 	typedef SingleUpdate<Mode, Boundary::Symmetric, d, o> 	SingleUpdateType;
@@ -460,10 +486,10 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
 	// source iterator
-	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+	typedef Iterator 			SourceIterator;
 
 	// dest iterator
-	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
 	typedef SingleUpdate<Mode, Boundary::Antisymmetric, d, o> 	SingleUpdateType;
@@ -493,86 +519,62 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 
 
 
-// // an intermediate update struct that adapts the statically 
-// // polymorphic structs to a std::function in order to enable
-// // runtime polymorphism
-// //
-// // this is a generalized framework for this sort of behavior,
-// // but it might be more efficient to redefine the template 
-// // arguments depending on the situation. Either way, they all
-// // become a functor in the end
-// template <typename SourceIterator, typename DestIterator>
-// struct BoundaryUpdater{
-// private:
-// 	SourceIterator 		mSrcBegin, mSrcEnd;
-// 	DestIterator		mDestBegin, mDestEnd;
-// 	std::function<void(SourceIterator, DestIterator)>	mFunct; // takes two iterators and applies the update
+template <typename Functor>
+struct GetNeighborPeriodic : public Functor{
+	// Functor fctor;
 
-// public:
-// 	BoundaryUpdater(SourceIterator sBeg, SourceIterator sEnd,
-// 					DestIterator   dBeg, DestIterator 	dEnd,
-// 					std::function<void(SourceIterator, DestIterator)> f)
-// 	: mSrcBegin(sBeg), mSrcEnd(sEnd), mDestBegin(dBeg), mDestEnd(dEnd)
-// 	, mFunct(f)
-// 	{};
+	GetNeighborPeriodic() {};
+	GetNeighborPeriodic(Functor & f) : Functor(f) {};
 
-// 	void update(){
-// 		for(auto it = std::make_pair(mSrcBegin, mDestBegin);
-// 			it.first != mSrcEnd ; 
-// 			it.first++, it.second++){
-// 			mFunct(it.first, it.second);
-// 		}
-// 	}
-
-// 	// turn this into a functor to enable runtime polymorphism
-// 	void operator()(void) {update();}; 
-// };
+	template <typename IteratorType>
+	static decltype(auto) get(IteratorType && it, GetNeighborPeriodic & g) {return g(it);};
+};
 
 
-// template <typename SourceIterator, typename DestIterator>
-// BoundaryUpdater<SourceIterator, DestIterator> make_boundary_updater(
-// 					SourceIterator sBeg, SourceIterator sEnd,
-// 					DestIterator   dBeg, DestIterator 	dEnd,
-// 					std::function<void(SourceIterator, DestIterator)> f){
-// 	return BoundaryUpdater<SourceIterator, DestIterator>(sBeg, sEnd, dBeg, dEnd, f);
-// }
+template <typename Iterator, typename Functor>
+struct PeriodicIteratorDef{
+	typedef DerivedIterator<Iterator, GetNeighborPeriodic<Functor>> type;
+};
+template <typename Iterator, typename Functor>
+using PeriodicIterator = typename PeriodicIteratorDef<Iterator, Functor>::type;
 
 
+// use the default mask
 
-// // use the default mask
+// use the default decorator
 
-// // use the default decorator
 
-// ************************ FINISH ME
-// // helper function to create this structure without passing the data types explicitly
-// template <typename Mode, Dir d, Orientation o, typename Iterator>
-// BoundaryData make_periodic_boundary(Iterator begit, Iterator endit){
-// 	static_assert(d != Dir::NONE, "Must have a valid direction!");
-// 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
+// helper function to create this structure without passing the data types explicitly
+// the Functor passed in here takes an iterator and returns a reference to the periodic neighbor
+template <typename Mode, Dir d, Orientation o, typename Iterator, typename Functor>
+BoundaryData make_periodic_boundary(Iterator begit, Iterator endit, Functor f){
+	static_assert(d != Dir::NONE, "Must have a valid direction!");
+	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
-// 	// source iterator
-// 	typedef std::conditional_t<o==Orientation::MIN, Iterator, MinIterator<Iterator, d>>			SourceIterator;
+	// source iterator
+	typedef PeriodicIterator<Iterator, Functor> 	SourceIterator;
+	// typedef std::conditional_t<o==Orientation::MIN, Iterator, PeriodicIterator<Iterator, Functor>>			SourceIterator;
 
-// 	// dest iterator
-// 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, Iterator>			DestIterator;
+	// dest iterator
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
-// 	// single update
-// 	typedef SingleUpdate<Mode, Boundary::Periodic, d, o> 	SingleUpdateType;
-// 	SingleUpdateType s;
+	// single update
+	typedef SingleUpdate<Mode, Boundary::Periodic, d, o> 	SingleUpdateType;
+	SingleUpdateType s;
 
-// 	// function type
-// 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
+	// function type
+	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
 
-// 	// whole-boundary update
-// 	auto upE = make_periodic_boundary_updater(SourceIterator(begit), SourceIterator(endit),
-// 									 DestIterator(begit), DestIterator(endit),
-// 									 static_cast<FunctorType>(s));
-// 	auto upH = make_periodic_boundary_updater(SourceIterator(begit), SourceIterator(endit),
-// 									 DestIterator(begit), DestIterator(endit),
-// 									 static_cast<FunctorType>(s));
+	// whole-boundary update
+	auto upE = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
+									 DestIterator(begit), DestIterator(endit),
+									 static_cast<FunctorType>(s));
+	auto upH = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
+									 DestIterator(begit), DestIterator(endit),
+									 static_cast<FunctorType>(s));
 
-// 	return BoundaryData(Boundary::Periodic, d, o, upE, upH);
-// };
+	return BoundaryData(Boundary::Periodic, d, o, upE, upH);
+};
 
 
 
@@ -584,7 +586,48 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 // //************************************************************
 // //************************************************************
 
-// // Define Bloch-periodic difference operator
+// use the default mask
+
+// use a Bloch-periodic decorator that multiplies by the bloch-factor specified by the user
+struct BlochDecorator{
+	std::complex<double> mBlochFactor;
+
+	BlochDecorator(std::complex<double> val) : mBlochFactor(val) {};
+
+	constexpr std::complex<double> decorate() const {return mBlochFactor;};
+};
+
+
+// helper function to create this structure without passing the data types explicitly
+// the Functor passed in here takes an iterator and returns a reference to the periodic neighbor
+template <typename Mode, Dir d, Orientation o, typename Iterator, typename Functor>
+BoundaryData make_bloch_periodic_boundary(Iterator begit, Iterator endit, Functor f, std::complex<double> BlochFactor){
+	static_assert(d != Dir::NONE, "Must have a valid direction!");
+	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
+
+	// source iterator
+	typedef PeriodicIterator<Iterator, Functor> 	SourceIterator;
+
+	// dest iterator
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
+
+	// single update
+	typedef SingleUpdate<Mode, Boundary::BlochPeriodic, d, o, BlochDecorator> 	SingleUpdateType;
+	SingleUpdateType s(BlochFactor);
+
+	// function type
+	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
+
+	// whole-boundary update
+	auto upE = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
+									 DestIterator(begit), DestIterator(endit),
+									 static_cast<FunctorType>(s));
+	auto upH = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
+									 DestIterator(begit), DestIterator(endit),
+									 static_cast<FunctorType>(s));
+
+	return BoundaryData(Boundary::BlochPeriodic, d, o, upE, upH);
+};
 
 
 // //************************************************************

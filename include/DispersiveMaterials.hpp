@@ -117,525 +117,171 @@ struct DoubleMagnetization : public SingleMagnetization<scalar_type>{
 //************************************************************
 //************************************************************
 
+    struct Jx : public EType{
+      static constexpr offset_type    off = {0.0, -0.5, -0.5};
+      static constexpr const char *   name = "Jx";
+      static constexpr Dir            direction = Dir::X;
+  };
+    struct Jy : public EType{
+      static constexpr offset_type    off = {-0.5, 0.0, -0.5};
+      static constexpr const char *   name = "Jy";
+      static constexpr Dir            direction = Dir::Y;
+  };
+    struct Jz : public EType{
+      static constexpr offset_type    off = {-0.5, -0.5, 0.0};
+      static constexpr const char *   name = "Jz";
+      static constexpr Dir            direction = Dir::Z;
+  };
+    struct Px : public EType{
+      static constexpr offset_type    off = Jx::off;
+      static constexpr const char *   name = "Px";
+      static constexpr Dir            direction = Dir::X;
+    };
+    struct Py : public EType{
+      static constexpr offset_type    off = Jy::off;
+      static constexpr const char *   name = "Py";
+      static constexpr Dir            direction = Dir::Y;
+    };
+    struct Pz : public EType{
+      static constexpr offset_type    off = Jz::off;
+      static constexpr const char *   name = "Pz";
+      static constexpr Dir            direction = Dir::Z;
+    };
 
 
-template <class FieldType>
-inline void ConstantUpdate(FieldType & Out, const FieldType & In, double c){Out=In/c;}
+    struct Kx : public HType{
+      static constexpr offset_type    off = {-0.5, 0.0, 0.0};
+      static constexpr const char *   name = "Kx";
+      static constexpr Dir            direction = Dir::X;
+  };
+    struct Ky : public HType{
+      static constexpr offset_type    off = {0.0, -0.5, 0.0};
+      static constexpr const char *   name = "Ky";
+      static constexpr Dir            direction = Dir::Y;
+  };
+    struct Kz : public HType{
+      static constexpr offset_type    off = {0.0, 0.0, -0.5};
+      static constexpr const char *   name = "Kz";
+      static constexpr Dir            direction = Dir::Z;
+  };
+    struct Mx : public HType{
+      static constexpr offset_type    off = Kx::off;
+      static constexpr const char *   name = "Mx";
+      static constexpr Dir            direction = Dir::X;
+    };
+    struct My : public HType{
+      static constexpr offset_type    off = Ky::off;
+      static constexpr const char *   name = "My";
+      static constexpr Dir            direction = Dir::Y;
+    };
+    struct Mz : public HType{
+      static constexpr offset_type    off = Kz::off;
+      static constexpr const char *   name = "Mz";
+      static constexpr Dir            direction = Dir::Z;
+    };
 
 
-template <class FieldType>
-inline void ConstantCalculate(FieldType & Out, const FieldType & In, double c){Out=In*c;}
+template <FieldType ft, Dir d>
+struct CurrentComponent{};
+
+template <> struct CurrentComponent<FieldType::Electric, Dir::X>{typedef Jx type;};
+template <> struct CurrentComponent<FieldType::Electric, Dir::Y>{typedef Jy type;};
+template <> struct CurrentComponent<FieldType::Electric, Dir::Z>{typedef Jz type;};
+
+template <> struct CurrentComponent<FieldType::Magnetic, Dir::X>{typedef Kx type;};
+template <> struct CurrentComponent<FieldType::Magnetic, Dir::Y>{typedef Ky type;};
+template <> struct CurrentComponent<FieldType::Magnetic, Dir::Z>{typedef Kz type;};
 
 
-template <class Mode, bool forward = false>
-struct ConstantUpdateE{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
+template <FieldType ft, Dir d>
+struct PolarizationComponent{};
+
+template <> struct PolarizationComponent<FieldType::Electric, Dir::X>{typedef Px type;};
+template <> struct PolarizationComponent<FieldType::Electric, Dir::Y>{typedef Py type;};
+template <> struct PolarizationComponent<FieldType::Electric, Dir::Z>{typedef Pz type;};
+
+template <> struct PolarizationComponent<FieldType::Magnetic, Dir::X>{typedef Mx type;};
+template <> struct PolarizationComponent<FieldType::Magnetic, Dir::Y>{typedef My type;};
+template <> struct PolarizationComponent<FieldType::Magnetic, Dir::Z>{typedef Mz type;};
 
 
-// specialization for 3D
-template <bool forward>
-struct ConstantUpdateE<ThreeD, forward>{
-	double eps;
 
-	ConstantUpdateE<ThreeD, forward>(double c): eps(eps0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Ex(), f.Dx(), eps);
-		ConstantUpdate(f.Ey(), f.Dy(), eps);
-		ConstantUpdate(f.Ez(), f.Dz(), eps);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator()(YeeCell && f){
-		ConstantCalculate(f.Dx(), f.Ex(), eps);
-		ConstantCalculate(f.Dy(), f.Ey(), eps);
-		ConstantCalculate(f.Dz(), f.Ez(), eps);
-	};
-
+template <>
+struct GetField<fdtd::Jx>{
 	template <class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Dx(), f.Ex(), eps);
-		ConstantCalculate(f.Dy(), f.Ey(), eps);
-		ConstantCalculate(f.Dz(), f.Ez(), eps);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Jx();}
+};
 
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Jy>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
-
+	static decltype(auto) get(YeeCell & f) {return f.Jy();}
 };
 
-// specialization for TE
-template <bool forward>
-struct ConstantUpdateE<TE, forward>{
-	double eps;
-
-	ConstantUpdateE<TE, forward>(double c): eps(eps0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Ex(), f.Dx(), eps);
-		ConstantUpdate(f.Ey(), f.Dy(), eps);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator()(YeeCell && f){
-		ConstantCalculate(f.Dx(), f.Ex(), eps);
-		ConstantCalculate(f.Dy(), f.Ey(), eps);
-	};
-
+template <>
+struct GetField<fdtd::Jz>{
 	template <class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Dx(), f.Ex(), eps);
-		ConstantCalculate(f.Dy(), f.Ey(), eps);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Jz();}
+};
 
-	// allows the user to pass in a variable time-step
+
+
+template <>
+struct GetField<fdtd::Px>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Px();}
 };
 
-
-// specialization for TM
-template <bool forward>
-struct ConstantUpdateE<TM, forward>{
-	double eps;
-
-	ConstantUpdateE<TM, forward>(double c): eps(eps0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Ez(), f.Dz(), eps);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){ConstantCalculate(f.Dz(), f.Ez(), eps);};
-
-
+template <>
+struct GetField<fdtd::Py>{
 	template <class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Dz(), f.Ez(), eps);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Py();}
+};
 
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Pz>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Pz();}
 };
 
-// specialization for TEM
-template <bool forward>
-struct ConstantUpdateE<TEM, forward>{
-	double eps;
 
-	ConstantUpdateE<TEM, forward>(double c): eps(eps0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Ez(), f.Dz(), eps);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){ConstantCalculate(f.Dz(), f.Ez(), eps);};
-
-
-	template<class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Dz(), f.Ez(), eps);
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Kx>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Kx();}
 };
 
-
-
-
-
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-
-
-
-
-
-
-
-
-
-
-template <class Mode, bool forward = false>
-struct ConstantUpdateH{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
-
-
-// specialization for 3D
-template <bool forward>
-struct ConstantUpdateH<ThreeD, forward>{
-	double mu;
-
-	ConstantUpdateH<ThreeD, forward>(double c): mu(mu0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Hx(), f.Bx(), mu);
-		ConstantUpdate(f.Hy(), f.By(), mu);
-		ConstantUpdate(f.Hz(), f.Bz(), mu);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		ConstantCalculate(f.Bx(), f.Hx(), mu);
-		ConstantCalculate(f.By(), f.Hy(), mu);
-		ConstantCalculate(f.Bz(), f.Hz(), mu);
-	};
-
-
-	template<class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Bx(), f.Hx(), mu);
-		ConstantCalculate(f.By(), f.Hy(), mu);
-		ConstantCalculate(f.Bz(), f.Hz(), mu);
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Ky>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
-
+	static decltype(auto) get(YeeCell & f) {return f.Ky();}
 };
 
-
-// specialization for TE
-template <bool forward>
-struct ConstantUpdateH<TE, forward>{
-	double mu;
-
-	ConstantUpdateH<TE, forward>(double c): mu(mu0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Hz(), f.Bz(), mu);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		ConstantCalculate(f.Bz(), f.Hz(), mu);
-	};
-
-
-	template<class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Bz(), f.Hz(), mu);
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Kz>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Kz();}
 };
 
 
-// specialization for TM
-template <bool forward>
-struct ConstantUpdateH<TM, forward>{
-	double mu;
-
-	ConstantUpdateH<TM, forward>(double c): mu(mu0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Hx(), f.Bx(), mu);
-		ConstantUpdate(f.Hy(), f.By(), mu);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		ConstantCalculate(f.Bx(), f.Hx(), mu);
-		ConstantCalculate(f.By(), f.Hy(), mu);
-	};
-
-
-	template<class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.Bx(), f.Hx(), mu);
-		ConstantCalculate(f.By(), f.Hy(), mu);
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Mx>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.Mx();}
 };
 
-
-// specialization for TEM
-template <bool forward>
-struct ConstantUpdateH<TEM, forward>{
-	double mu;
-
-	ConstantUpdateH<TEM, forward>(double c): mu(mu0*c) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		ConstantUpdate(f.Hy(), f.By(), mu);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){ConstantCalculate(f.By(), f.Hy(), mu);};
-
-
-	template<class YeeCell>
-	void calculate(YeeCell && f){
-		ConstantCalculate(f.By(), f.Hy(), mu);
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::My>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		this->operator()(f);
-	};
+	static decltype(auto) get(YeeCell & f) {return f.My();}
 };
 
-
-
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-template <class Mode, bool forward = false>
-struct ConductiveUpdateE{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
-
-
-// specialization for 3D
-template <bool forward>
-struct ConductiveUpdateE<ThreeD, forward>{
-	double eps_r;
-	double w0;
-	double dt;
-
-	double factor;
-
-	ConductiveUpdateE<ThreeD, forward>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
-		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
-		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
-
-		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
-		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		f.Px() += dt*w0*f.Ex();
-		f.Py() += dt*w0*f.Ey();
-		f.Pz() += dt*w0*f.Ez();
-
-		f.Dx() = eps_r*eps0*f.Ex() + f.Px();
-		f.Dy() = eps_r*eps0*f.Ey() + f.Py();
-		f.Dz() = eps_r*eps0*f.Ez() + f.Pz();
-	};
-
-	// allows the user to pass in a variable time-step
+template <>
+struct GetField<fdtd::Mz>{
 	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-
+	static decltype(auto) get(YeeCell & f) {return f.Mz();}
 };
 
-
-// specialization for TM
-template <bool forward>
-struct ConductiveUpdateE<TM, forward>{
-	double eps_r;
-	double w0;
-	double dt;
-
-	double factor;
-
-	ConductiveUpdateE<TM, forward>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		f.Pz() += dt*w0*f.Ez();
-		f.Dz() = eps_r*eps0*f.Ez() + f.Pz();
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-
-};
-
-
-// specialization for TE
-template <bool forward>
-struct ConductiveUpdateE<TE, forward>{
-	double eps_r;
-	double w0;
-	double dt;
-
-	double factor;
-
-	ConductiveUpdateE<TE, forward>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		f.Px() = (f.Px() + factor*f.Dx())/(1.0+factor);
-		f.Py() = (f.Py() + factor*f.Dy())/(1.0+factor);
-
-		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
-		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		f.Px() += dt*w0*f.Ex();
-		f.Py() += dt*w0*f.Ey();
-
-		f.Dx() = eps_r*eps0*f.Ex() + f.Px();
-		f.Dy() = eps_r*eps0*f.Ey() + f.Py();
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-
-};
-
-// specialization for TEM
-template <bool forward>
-struct ConductiveUpdateE<TEM, forward>{
-	double eps_r;
-	double w0;
-	double dt;
-
-	double factor;
-
-	ConductiveUpdateE<TEM, forward>(double c, double omega0, double deltat): eps_r(c), w0(omega0), dt(deltat), factor(deltat*omega0/(c*eps0)) {};
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		f.Pz() = (f.Pz() + factor*f.Dz())/(1.0+factor);
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		f.Pz() += dt*w0*f.Ez();
-		f.Dz() = eps_r*eps0*f.Ez() + f.Pz();
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-};
-
-
-
 //************************************************************
 //************************************************************
 //************************************************************
@@ -643,475 +289,665 @@ struct ConductiveUpdateE<TEM, forward>{
 //************************************************************
 //************************************************************
 
+struct StoredValue{
+	double mVal;
 
-
-
-template <class Mode, 
-			class StaticValue,
-			class Delta, 
-			class LorentzFreq,
-			class Gamma>
-struct LorentzUpdateParametrized{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
-
-
-// specialization for 3D
-template<class StaticValue,
-			class Delta, 
-			class LorentzFreq,
-			class Gamma>
-struct LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>{
-	double eps_r;
-	double dt;
-
-
-
-	LorentzUpdateParametrized<ThreeD, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = 2.0*Gamma::get(f)*dt;
-		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
-
-		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
-		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
-
-		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
-		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
-
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
-
-		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
-		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-
-};
-
-
-// specialization for TM
-template<class StaticValue,
-			class Delta, 
-			class LorentzFreq,
-			class Gamma>
-struct LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>{
-	double eps_r;
-	double dt;
-
-
-
-	LorentzUpdateParametrized<TM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = 2.0*Gamma::get(f)*dt;
-		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
-
-
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
-
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-};
-
-
-// specialization for TE
-template<class StaticValue,
-			class Delta, 
-			class LorentzFreq,
-			class Gamma>
-struct LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>{
-	double eps_r;
-	double dt;
-
-
-
-	LorentzUpdateParametrized<TE, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = 2.0*Gamma::get(f)*dt;
-		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
-
-		f.Px() = (f.Px() + 1.0/(b+dt*c)*(b*f.Px() + dt*f.Jx()));
-		f.Jx() = (f.Jx() + 1.0/(b+dt*c)*(-c*f.Px() + f.Jx()));
-
-		f.Py() = (f.Py() + 1.0/(b+dt*c)*(b*f.Py() + dt*f.Jy()));
-		f.Jy() = (f.Jy() + 1.0/(b+dt*c)*(-c*f.Py() + f.Jy()));
-
-		f.Ex() = (f.Dx() - f.Px())/(eps0*eps_r);
-		f.Ey() = (f.Dy() - f.Py())/(eps0*eps_r);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-};
-
-
-// specialization for 1D TEM
-template<class StaticValue,
-			class Delta, 
-			class LorentzFreq,
-			class Gamma>
-struct LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>{
-	double eps_r;
-	double dt;
-
-
-
-	LorentzUpdateParametrized<TEM, StaticValue, Delta, LorentzFreq, Gamma>(double c, double deltat): eps_r(c), dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = 2.0*Gamma::get(f)*dt;
-		double c = dt*LorentzFreq::get(f)*LorentzFreq::get(f)*(1.0+Delta::get(f)/eps_r);
-
-		f.Pz() = (f.Pz() + 1.0/(b+dt*c)*(b*f.Pz() + dt*f.Jz()));
-		f.Jz() = (f.Jz() + 1.0/(b+dt*c)*(-c*f.Pz() + f.Jz()));
-
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*eps_r);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
-	};
-
-};
-
-
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-
-
-struct DrudeUpdate{
-
-//////////////// implicit Euler (1st order) ////////////////////////
-	// // using implicit Euler (1st-order in time)
-	// template <typename T>
-	// static void implicit_update(T& D, T& E, T& P, T& J,
-	// 						   double eps_rel,
-	// 						   double eps_0, 
-	// 						   double drude_freq, 
-	// 						   double gamma,
-	// 						   double dt){
-	// 	double b = gamma*dt;
-	// 	double c = dt*drude_freq*drude_freq/eps_rel;
-
-	// 	J = (J + c*(D - P))/(1.0+b+dt*c);
-	// 	P += dt*J;
-	// 	E = (D - P)/(eps_rel*eps_0);
-	// }
+	StoredValue(double K) : mVal(K) {};
 
 	template <typename T>
-	static void explicit_update(T& D, T& E, T& P, T& J,
-							   double eps_rel,
-							   double eps_0, 
-							   double drude_freq, 
-							   double gamma,
-							   double dt){
-		double b = gamma*dt;
-		double c = dt*drude_freq*drude_freq*eps_0;
-
-		P = (-dt*J + (1.0+b)*P)/(1.0+b);
-		J = (J - c*E)/(1.0+b);
-		D = eps_rel*eps_0*E + P;
-	}
+	static double get(T && f, StoredValue & s){return s.mVal;};
+};
 
 
-//////////////// Crank-Nicolson (2nd order) ////////////////////////
+template <typename Tipo>
+struct Stored{
+	double mVal;
 
-	// // using Crank-Nicolson (2nd-order in time)
-	// template <typename T>
-	// static void implicit_update(T& D, T& E, T& P, T& J,
-	// 						   double eps_rel,
-	// 						   double eps_0, 
-	// 						   double drude_freq, 
-	// 						   double gamma,
-	// 						   double dt){
-	// 	double b = gamma*dt*0.5;
-	// 	double c = 0.5*dt*drude_freq*drude_freq/eps_rel;
-	// 	double d = 0.5*dt*drude_freq*drude_freq*eps_0;
-
-	// 	auto K1 = (1.0+b)*J + d*E + c*D;
-	// 	auto K2 = 0.5*dt*J + P;
-
-	// 	double a = 1+b+0.5*dt*c;
-
-	// 	J = 1.0/a * (K1 - c*K2);
-	// 	P = 1.0/a * (0.5*dt*K1 + (1.0+b)*K2);
-	// 	E = (D - P)/(eps_rel*eps_0);
-	// }
-
-	// template <typename T>
-	// static void explicit_update(T& D, T& E, T& P, T& J,
-	// 						   double eps_rel,
-	// 						   double eps_0, 
-	// 						   double drude_freq, 
-	// 						   double gamma,
-	// 						   double dt){
-	// 	double b = gamma*dt;
-	// 	double c = dt*drude_freq*drude_freq*eps_0;
-
-	// 	P = (-dt*J + (1.0+b)*P)/(1.0+b);
-	// 	J = (J - c*E)/(1.0+b);
-	// 	D = eps_rel*eps_0*E + P;
-	// }
-
-
-//////////////// Verlet (2nd order) ////////////////////////
+	Stored(double K) : mVal(K) {};
 
 	template <typename T>
-	static void implicit_update(T& D, T& E, T& P, T& J,
-							   double eps_rel,
-							   double eps_0, 
-							   double drude_freq, 
-							   double gamma,
-							   double dt){
-		double b = gamma*dt*0.5;
-		double w = dt*drude_freq; // normalized plasma freq
-
-		// first update P to the level of D
-		P += dt*J;
-
-		// then update E to the level of D
-		E = (D - P)/(eps_rel*eps_0);
-
-		// finally update J a half step past D
-		J = J*(1.0-b)/(1.0+b) + w*w/dt*eps_0*E;
-		
-	}
-
-
-//////////////// Recursive Convolution (1st order) i.e. exponential time-stepping ////////////////////////
-
-	// template <typename T>
-	// static void implicit_update(T& D, T& E, T& P, T& J,
-	// 						   double eps_rel,
-	// 						   double eps_0, 
-	// 						   double drude_freq, 
-	// 						   double gamma,
-	// 						   double dt){
-		
-	// 	// P = I_1
-	// 	// J = I_2
-
-	// 	// normalized quantities
-	// 	double G = gamma*dt;
-	// 	double W = drude_freq*dt;
-
-	// 	double X_1 = eps_0*W*W/G;
-	// 	double X_2 = eps_0*(W/G)*(W/G)*(exp(-G)-1.0);
-
-	// 	double R_1 = 1.0;
-	// 	double R_2 = exp(-G);
-
-	// 	// update new J and P
-	// 	P = E*X_1 + R_1*P;
-	// 	J = E*X_2 + R_2*J;
-
-	// 	// update E with new values of J, P
-	// 	E = (D - R_1*P - R_2*J)/(eps_rel*eps_0 + X_1 + X_2);		
-
-	// }
-
+	static double get(T && f, Stored & s){return s.mVal;};
 };
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+namespace constant{
+	struct ConstantUpdate{
+
+
+		template <typename T>
+		static void explicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0){
+			D = eps_rel*eps_0*E;
+		}
+
+
+	//////////////// Verlet (2nd order) ////////////////////////
+
+		template <typename T>
+		static void implicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0){
+
+			E = D/(eps_rel*eps_0);
+
+		}
+
+	};
+
+	template <typename EMField>
+	struct ConstantImplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0){
+			ConstantUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+											  eps_r, eps_0); 
+		}
+	};
+
+	template <typename EMField>
+	struct ConstantExplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0){
+			ConstantUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+											  eps_r, eps_0); 
+		}
+	};
+}// end namespace constant
+
+
+
+
+
+
+// This is very generalized and pretty good, but it would be convenient to have a type
+// that could store the material parameters within the struct itself
 template <class Mode, 
-			class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			bool forward = false>
-struct DrudeUpdateParametrized{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
+		  FieldType ftype = FieldType::Electric,
+		  bool forward = false,
+		  class StaticValue = StoredValue>
+struct ConstantUpdate : public StaticValue
+{
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 
+	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 
-// specialization for 3D
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			bool forward>
-struct DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, forward>{
-	double dt;
+	ConstantUpdate() {};
+	ConstantUpdate(double K) : StaticValue(K) {};
 
-	DrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, forward>(double deltat): dt(deltat) {};
 
 	// use SFINAE to enable this only when forward = false;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		DrudeUpdate::implicit_update(f.Dx(), f.Ex(), f.Px(), f.Jx(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::implicit_update(f.Dy(), f.Ey(), f.Py(), f.Jy(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::implicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							constant::ConstantImplicit>(f, StaticValue::get(f, *this), val);
 	};
 
 	// use SFINAE to enable this only when forward = true;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		DrudeUpdate::explicit_update(f.Dx(), f.Ex(), f.Px(), f.Jx(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::explicit_update(f.Dy(), f.Ey(), f.Py(), f.Jy(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::explicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							constant::ConstantExplicit>(f, StaticValue::get(f, *this), val);
 	};
 
+	// allows the user to pass in a variable time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		get(f);
+	};
 
 	// allows the user to pass in a variable time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		this->operator()(f);
+		get(f);
 	};
 
 };
 
-// specialization for TM
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			bool forward>
-struct DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, forward>{
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+namespace conductive{
+	struct ConductiveUpdate{
+
+
+		template <typename T>
+		static void explicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0, 
+								   double cond_freq, 
+								   double dt){
+			P += dt*cond_freq*E;
+			D = eps_rel*eps_0*E + P;
+		}
+
+
+	//////////////// Verlet (2nd order) ////////////////////////
+
+		template <typename T>
+		static void implicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0, 
+								   double cond_freq, 
+								   double dt){
+
+			double factor = dt*cond_freq/(eps_rel*eps_0);
+
+			// first update P to the level of D
+			P += factor*D/(1.0+factor);
+			// then update E to the level of D
+			E = (D - P)/(eps_rel*eps_0);
+
+		}
+
+	};
+
+	template <typename EMField>
+	struct ConductiveImplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0, double wp, double dt){
+			ConductiveUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+											  eps_r, eps_0, wp, dt); 
+		}
+	};
+
+	template <typename EMField>
+	struct ConductiveExplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0, double wp, double dt){
+			ConductiveUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+											  eps_r, eps_0, wp, dt); 
+		}
+	};
+}// end namespace conductive
+
+
+
+
+
+
+// This is very generalized and pretty good, but it would be convenient to have a type
+// that could store the material parameters within the struct itself
+template <class Mode,
+		  FieldType ftype = FieldType::Electric,
+		  bool forward = false, 
+		  class StaticValue = StoredValue,
+		  class ConductiveFreq = Stored<void>>
+struct ConductiveUpdate : public StaticValue, public ConductiveFreq
+{
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+
+	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	double dt;
 
-	DrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, forward>(double deltat): dt(deltat) {};
+	ConductiveUpdate(double deltat): dt(deltat) {};
+	ConductiveUpdate(double K, double w0, double deltat): StaticValue(K), ConductiveFreq(w0), dt(deltat) {};
+
 
 	// use SFINAE to enable this only when forward = false;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		DrudeUpdate::implicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							conductive::ConductiveImplicit>(f, StaticValue::get(f, *this), val, ConductiveFreq::get(f, *this), dt);
 	};
 
 	// use SFINAE to enable this only when forward = true;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		DrudeUpdate::explicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							conductive::ConductiveExplicit>(f, StaticValue::get(f, *this), val, ConductiveFreq::get(f, *this), dt);
+	};
+
+	// allows the user to pass in a variable time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		get(f);
 	};
 
 	// allows the user to pass in a variable time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f, double delta_t){
 		dt = delta_t;
-		this->operator()(f);
+		get(f);
 	};
 
 };
 
 
-// specialization for TE
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			bool forward>
-struct DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, forward>{
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+namespace lorentz{
+	struct LorentzUpdate{
+
+
+		template <typename T>
+		static void explicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double delta,
+								   double eps_0, 
+								   double lorentz_freq, 
+								   double gamma,
+								   double dt){
+			static_assert(std::is_same<T,void>::value, "EXPLICIT UPDATE FOR LORENTZ MATERIAL IS INCOMPLETE!");
+		}
+
+
+	//////////////// Verlet (2nd order) ////////////////////////
+
+		template <typename T>
+		static void implicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double delta,
+								   double eps_0, 
+								   double lorentz_freq, 
+								   double gamma,
+								   double dt){
+
+			double b = 2.0*gamma*dt;
+			double c = dt*lorentz_freq*lorentz_freq*(1.0+delta/eps_rel);
+
+			// first update P to the level of D
+			P += 1.0/(b+dt*c)*(b*P + dt*J);
+
+			// finally update J a half step past D
+			J += 1.0/(b+dt*c)*(-c*P + J);
+
+			// then update E to the level of D
+			E = (D - P)/(eps_rel*eps_0);
+		}
+
+	};
+
+	template <typename EMField>
+	struct LorentzImplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double delta, double eps_0, double wp, double gamma, double dt){
+			LorentzUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										 eps_r, delta, eps_0, wp, gamma, dt); 
+		}
+	};
+
+	template <typename EMField>
+	struct LorentzExplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double delta, double eps_0, double wp, double gamma, double dt){
+			LorentzUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										 eps_r, delta, eps_0, wp, gamma, dt); 
+		}
+	};
+}// end namespace lorentz
+
+
+
+
+
+
+// This is very generalized and pretty good, but it would be convenient to have a type
+// that could store the material parameters within the struct itself
+template <class Mode,
+		  FieldType ftype = FieldType::Electric,
+		  bool forward = false, 
+		  class StaticValue = StoredValue,
+		  class Delta 		= Stored<void>,
+		  class LorentzFreq = Stored<int>,
+		  class Gamma 		= Stored<double>
+		  >
+struct LorentzUpdate : public StaticValue, public Delta, public LorentzFreq, public Gamma
+{
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+
+	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	double dt;
 
-	DrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, forward>(double deltat): dt(deltat) {};
+	LorentzUpdate(double deltat): dt(deltat) {};
+	LorentzUpdate(double K, double del, double w0, double gamma, double deltat): StaticValue(K), Delta(del), LorentzFreq(w0), Gamma(gamma), dt(deltat) {};
+
 
 	// use SFINAE to enable this only when forward = false;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		DrudeUpdate::implicit_update(f.Dx(), f.Ex(), f.Px(), f.Jx(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::implicit_update(f.Dy(), f.Ey(), f.Py(), f.Jy(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							lorentz::LorentzImplicit>(f, StaticValue::get(f, *this), Delta::get(f, *this), val, LorentzFreq::get(f, *this), Gamma::get(f, *this), dt);
 	};
 
 	// use SFINAE to enable this only when forward = true;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		DrudeUpdate::explicit_update(f.Dx(), f.Ex(), f.Px(), f.Jx(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
-		DrudeUpdate::explicit_update(f.Dy(), f.Ey(), f.Py(), f.Jy(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							lorentz::LorentzExplicit>(f, StaticValue::get(f, *this), Delta::get(f, *this), val, LorentzFreq::get(f, *this), Gamma::get(f, *this), dt);
 	};
 
+	// allows the user to pass in a variable time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		get(f);
+	};
 
 	// allows the user to pass in a variable time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f, double delta_t){
 		dt = delta_t;
-		this->operator()(f);
+		get(f);
 	};
+
 };
 
 
-// specialization for TEM
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			bool forward>
-struct DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, forward>{
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+namespace drude{
+	struct DrudeUpdate{
+
+	//////////////// implicit Euler (1st order) ////////////////////////
+		// // using implicit Euler (1st-order in time)
+		// template <typename T>
+		// static void implicit_update(T& D, T& E, T& P, T& J,
+		// 						   double eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+		// 	double b = gamma*dt;
+		// 	double c = dt*drude_freq*drude_freq/eps_rel;
+
+		// 	J = (J + c*(D - P))/(1.0+b+dt*c);
+		// 	P += dt*J;
+		// 	E = (D - P)/(eps_rel*eps_0);
+		// }
+
+		template <typename T>
+		static void explicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0, 
+								   double drude_freq, 
+								   double gamma,
+								   double dt){
+			double b = gamma*dt;
+			double c = dt*drude_freq*drude_freq*eps_0;
+
+			P = (-dt*J + (1.0+b)*P)/(1.0+b);
+			J = (J - c*E)/(1.0+b);
+			D = eps_rel*eps_0*E + P;
+		}
+
+
+	//////////////// Crank-Nicolson (2nd order) ////////////////////////
+
+		// // using Crank-Nicolson (2nd-order in time)
+		// template <typename T>
+		// static void implicit_update(T& D, T& E, T& P, T& J,
+		// 						   double eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+		// 	double b = gamma*dt*0.5;
+		// 	double c = 0.5*dt*drude_freq*drude_freq/eps_rel;
+		// 	double d = 0.5*dt*drude_freq*drude_freq*eps_0;
+
+		// 	auto K1 = (1.0+b)*J + d*E + c*D;
+		// 	auto K2 = 0.5*dt*J + P;
+
+		// 	double a = 1+b+0.5*dt*c;
+
+		// 	J = 1.0/a * (K1 - c*K2);
+		// 	P = 1.0/a * (0.5*dt*K1 + (1.0+b)*K2);
+		// 	E = (D - P)/(eps_rel*eps_0);
+		// }
+
+		// template <typename T>
+		// static void explicit_update(T& D, T& E, T& P, T& J,
+		// 						   double eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+		// 	double b = gamma*dt;
+		// 	double c = dt*drude_freq*drude_freq*eps_0;
+
+		// 	P = (-dt*J + (1.0+b)*P)/(1.0+b);
+		// 	J = (J - c*E)/(1.0+b);
+		// 	D = eps_rel*eps_0*E + P;
+		// }
+
+
+	//////////////// Verlet (2nd order) ////////////////////////
+
+		template <typename T>
+		static void implicit_update(T& D, T& E, T& P, T& J,
+								   double eps_rel,
+								   double eps_0, 
+								   double drude_freq, 
+								   double gamma,
+								   double dt){
+			double b = gamma*dt*0.5;
+			double w = dt*drude_freq; // normalized plasma freq
+
+			// first update P to the level of D
+			P += dt*J;
+
+			// then update E to the level of D
+			E = (D - P)/(eps_rel*eps_0);
+
+			// finally update J a half step past D
+			J = J*(1.0-b)/(1.0+b) + w*w/dt*eps_0*E;
+			
+		}
+
+
+	//////////////// Recursive Convolution (1st order) i.e. exponential time-stepping ////////////////////////
+
+		// template <typename T>
+		// static void implicit_update(T& D, T& E, T& P, T& J,
+		// 						   double eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+			
+		// 	// P = I_1
+		// 	// J = I_2
+
+		// 	// normalized quantities
+		// 	double G = gamma*dt;
+		// 	double W = drude_freq*dt;
+
+		// 	double X_1 = eps_0*W*W/G;
+		// 	double X_2 = eps_0*(W/G)*(W/G)*(exp(-G)-1.0);
+
+		// 	double R_1 = 1.0;
+		// 	double R_2 = exp(-G);
+
+		// 	// update new J and P
+		// 	P = E*X_1 + R_1*P;
+		// 	J = E*X_2 + R_2*J;
+
+		// 	// update E with new values of J, P
+		// 	E = (D - R_1*P - R_2*J)/(eps_rel*eps_0 + X_1 + X_2);		
+
+		// }
+
+	};
+
+	template <typename EMField>
+	struct DrudeImplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0, double wp, double gamma, double dt){
+			DrudeUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										 eps_r, eps_0, wp, gamma, dt); 
+		}
+	};
+
+	template <typename EMField>
+	struct DrudeExplicit{
+		static constexpr Dir d = FieldDir<EMField>::value; 
+		static constexpr FieldType ft = EMField::field_type;
+		typedef typename FluxComponent<ft, d>::type 		DType;
+		typedef typename FieldComponent<ft, d>::type 	EType;
+		typedef typename CurrentComponent<ft, d>::type 	JType;
+		typedef typename PolarizationComponent<ft, d>::type 	PType;
+
+		template <typename T>
+		static void get(T && f, double eps_r, double eps_0, double wp, double gamma, double dt){
+			DrudeUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										 eps_r, eps_0, wp, gamma, dt); 
+		}
+	};
+}// end namespace drude
+
+
+
+// This is very generalized and pretty good, but it would be convenient to have a type
+// that could store the material parameters within the struct itself
+template <class Mode,
+		  FieldType ftype = FieldType::Electric,
+		  bool forward = false, 
+		  class StaticValue = StoredValue,
+		  class DrudeFreq 	= Stored<void>,
+		  class Gamma 		= Stored<int>
+		  >
+struct DrudeUpdate : public StaticValue, public DrudeFreq, public Gamma
+{
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+
+	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	double dt;
 
-	DrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, forward>(double deltat): dt(deltat) {};
+	DrudeUpdate(double deltat): dt(deltat) {};
+	DrudeUpdate(double K, double w0, double gamma, double deltat): StaticValue(K), DrudeFreq(w0), Gamma(gamma), dt(deltat) {};
+
 
 	// use SFINAE to enable this only when forward = false;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<!T, void>::type
-	operator()(YeeCell && f){
-		DrudeUpdate::implicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							drude::DrudeImplicit>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
 	};
 
 	// use SFINAE to enable this only when forward = true;
 	template <class YeeCell, bool T = forward>
 	typename std::enable_if<T, void>::type
-	operator() (YeeCell && f){
-		DrudeUpdate::explicit_update(f.Dz(), f.Ez(), f.Pz(), f.Jz(),
-									 StaticValue::get(f), fdtd::eps0, DrudeFreq::get(f), Gamma::get(f), dt);
+	get(YeeCell && f){
+		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							drude::DrudeExplicit>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
+	};
+
+	// allows the user to pass in a variable time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		get(f);
 	};
 
 	// allows the user to pass in a variable time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f, double delta_t){
 		dt = delta_t;
-		this->operator()(f);
+		get(f);
 	};
 
-
 };
+
 
 
 //************************************************************

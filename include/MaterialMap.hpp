@@ -36,8 +36,8 @@ private:
 
 public:
 	MaterialPair() 
-	: mElectric(ConstantUpdateE<Mode>(1.0))
-	, mMagnetic(ConstantUpdateH<Mode>(1.0)) {};
+	: mElectric(ConstantUpdate<Mode>(1.0))
+	, mMagnetic(ConstantUpdate<Mode>(1.0)) {};
 
 	MaterialPair(function_type e, function_type m)
 	: mElectric(e), mMagnetic(m) {};

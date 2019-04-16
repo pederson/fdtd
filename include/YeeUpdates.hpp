@@ -183,6 +183,7 @@ struct TemporalScheme {};
 
 struct BD1 : public TemporalScheme {
 	static constexpr double curl_coeff = 1.0;
+	static constexpr double last_coeff = 1.0;
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
 	static decltype(auto) get(YeeCell & f){
@@ -193,11 +194,17 @@ struct BD1 : public TemporalScheme {
 	static void increment(YeeCell && f, ValueT hold){
 		return;
 	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
+	static void decrement(YeeCell && f, ValueT hold){
+		return;
+	}
 };
 
 
 struct BD3 : public TemporalScheme {
 	static constexpr double curl_coeff = 24.0/23.0;
+	static constexpr double last_coeff = -1.0/23.0;
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
 	static decltype(auto) get(const YeeCell & f){
@@ -206,10 +213,34 @@ struct BD3 : public TemporalScheme {
 			  -1.0/23.0*FieldGetter::get(f.BD(1));
 	}
 
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_reverse(const YeeCell & f){
+		return -21.0*FieldGetter::get(f.BD(0)) 
+			  -3.0*FieldGetter::get(f.BD(1))
+			  +23.0*FieldGetter::get(f);
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_last(const YeeCell & f){
+		return FieldGetter::get(f.BD(1));
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_first(const YeeCell & f){
+		return FieldGetter::get(f.BD(0));
+	}
+
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
 	static void increment(YeeCell && f, ValueT hold){
 		FieldGetter::get(f.BD(1)) = FieldGetter::get(f.BD(0));
 		FieldGetter::get(f.BD(0)) = hold;
+		return;
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
+	static void decrement(YeeCell && f, ValueT hold){
+		FieldGetter::get(f.BD(0)) = FieldGetter::get(f.BD(1));
+		FieldGetter::get(f.BD(1)) = hold;
 		return;
 	}
 };
@@ -217,6 +248,7 @@ struct BD3 : public TemporalScheme {
 
 struct BD4 : public TemporalScheme {
 	static constexpr double curl_coeff = 24.0/22.0;
+	static constexpr double last_coeff = 1.0/22.0;
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
 	static decltype(auto) get(YeeCell & f){
@@ -226,11 +258,37 @@ struct BD4 : public TemporalScheme {
 			  +1.0/22.0*FieldGetter::get(f.BD(2));
 	}
 
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_reverse(YeeCell & f){
+		return -17.0*FieldGetter::get(f.BD(0)) 
+			  -9.0*FieldGetter::get(f.BD(1))
+			  +5.0*FieldGetter::get(f.BD(2))
+			  -22.0*FieldGetter::get(f);
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_last(const YeeCell & f){
+		return FieldGetter::get(f.BD(2));
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
+	static decltype(auto) get_first(const YeeCell & f){
+		return FieldGetter::get(f.BD(0));
+	}
+
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
 	static void increment(YeeCell && f, ValueT hold){
 		FieldGetter::get(f.BD(2)) = FieldGetter::get(f.BD(1));
 		FieldGetter::get(f.BD(1)) = FieldGetter::get(f.BD(0));
 		FieldGetter::get(f.BD(0)) = hold;
+		return;
+	}
+
+	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell, typename ValueT>
+	static void decrement(YeeCell && f, ValueT hold){
+		FieldGetter::get(f.BD(0)) = FieldGetter::get(f.BD(1));
+		FieldGetter::get(f.BD(1)) = FieldGetter::get(f.BD(2));
+		FieldGetter::get(f.BD(2)) = hold;
 		return;
 	}
 };
@@ -351,6 +409,35 @@ public:
 	static void increment(YeeCell && f, ValueType && val){
 		TimePolicy::template increment<EMField, FP>(std::forward<YeeCell>(f), std::forward<ValueType>(val));
 	}
+
+
+
+
+	///////////// REVERSE
+	// reverse_update in a single direction, with decrement of the time policy
+	template <class YeeCell, typename ValueType, typename T = EMField>
+	static void	reverse_update(YeeCell && f, double delt, ValueType curl){
+
+		auto hold = TimePolicy::template get_first<EMField, FP>(f);
+		auto val = TimePolicy::template get_reverse<EMField, FP>(f)
+					-yu_details::Coeff<FT>::value*TimePolicy::curl_coeff/TimePolicy::last_coeff*delt*curl;
+
+		TimePolicy::template decrement<EMField, FP>(f, val);
+		FP::get(f) = hold;
+	}
+
+	// // reverse_update with left and right values provided as input
+	// template <Dir d, class YeeCell, typename ValueType, typename T = EMField>
+	// static void	reverse_update(YeeCell && f, double delt, double delx, ValueType right, ValueType left){
+	// 	static constexpr Dir 			J = d;
+	// 	static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
+		
+	// 	// auto hold = FP::get(f);
+	// 	FP::get(f) = TimePolicy::template get<EMField, FP>(f)
+	// 				+yu_details::Coeff<FT>::value*LeviCivita<I, J, K>::value*TimePolicy::curl_coeff*delt/delx*(right - left);
+
+	// 	// TimePolicy::template decrement<EMField, FP>(f, hold);
+	// }
 	
 };
 

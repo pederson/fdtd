@@ -89,18 +89,6 @@ static constexpr double c0 = 2.99792458e+8;	/**< speed of light in a vacuum */
 static constexpr double imp0 = sqrt(mu0/eps0); /**< free space impedance */
 
 
-
-
-// template <typename T, typename std::enable_if<!std::is_enum<T>::value, void>::type>
-// struct NameOf{static constexpr const char * value = "Unnamed Enum";};
-
-
-// template <typename T, typename std::enable_if<!std::is_enum<T>::value, void>::type>
-// struct NameOf{static constexpr const char * value = "Unnamed";};
-
-
-// template <> struct NameOf<char>{static constexpr const char * value = "Unnamed";};
-
 struct EMMode{};
 struct TE : public EMMode{static const std::size_t dim=2;
                           static const std::size_t numE=2;
@@ -118,10 +106,6 @@ struct ThreeD : public EMMode{static const std::size_t dim=3;
 
 
 
-// template<> struct NameOf<TE>{static constexpr const char * value = "TE";};
-// template<> struct NameOf<TM>{static constexpr const char * value = "TM";};
-// template<> struct NameOf<TEM>{static constexpr const char * value = "TEM";};
-// template<> struct NameOf<ThreeD>{static constexpr const char * value = "ThreeD";};
 
 enum class FieldType : char{
   NONE,
@@ -146,11 +130,6 @@ template <> struct NameArray<Dir>{
 };
 constexpr std::array<const char *, 4> NameArray<Dir>::value;
 
-// template <Dir d>
-// struct NameOfDir{static constexpr const char * value = "NONE";};
-// template <> struct NameOfDir<Dir::X>{static constexpr const char * value = "X";};
-// template <> struct NameOfDir<Dir::Y>{static constexpr const char * value = "Y";};
-// template <> struct NameOfDir<Dir::Z>{static constexpr const char * value = "Z";};
 
 
 template <Dir I, Dir J>

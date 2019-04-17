@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <complex>
+#include <vector>
 
 namespace fdtd{
 
@@ -86,7 +87,13 @@ private:
 
 		template <typename SourceIterator, typename DestIterator>
 		static void get(SourceIterator && sit, DestIterator && dit, DecoratorPolicy & dec){
+			std::cout << "******** " << EMField::name << " **********" << std::endl;
+			std::cout << "before: " << GetField<EMField>::get(*dit) << std::endl;
+			std::cout << "\t decorator: " << dec.decorate() << std::endl;
+			std::cout << "\t mask: " <<  Mask<EMField, b, d, o>::value << std::endl;
+			std::cout << "\t source: " << GetField<EMField>::get(*sit) << std::endl;
 			GetField<EMField>::get(*dit) = dec.decorate() * Mask<EMField, b, d, o>::value * GetField<EMField>::get(*sit);
+			std::cout << "after: " << GetField<EMField>::get(*dit) << std::endl;
 		}
 	};
 	
@@ -180,6 +187,9 @@ public:
 	: mType(b), mDir(d), mOr(o), mUpdateE(updateE), mUpdateH(updateH) 
 	{};
 
+	void updateE() {mUpdateE();};
+	void updateH() {mUpdateH();};
+
 	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
 		for (auto i=0; i<ntabs; i++) os << "\t" ;
 		os << "<Boundary>" << std::endl;
@@ -226,7 +236,7 @@ public:
 	DerivedIterator(Iterator it, Args... init) : DereferenceFunctor(init...), mIt(it) {};
 
 	// copy-construct
-	DerivedIterator(const DerivedIterator & cit) : mIt(cit.mIt) {};
+	DerivedIterator(const DerivedIterator & cit) : DereferenceFunctor(cit), mIt(cit.mIt) {};
 
 	// copy assignment
 	DerivedIterator & operator=(const DerivedIterator & cit){
@@ -637,51 +647,166 @@ BoundaryData make_bloch_periodic_boundary(Iterator begit, Iterator endit, Functo
 // //************************************************************
 // //************************************************************
 
-// // an intermediate update struct that adapts the statically 
-// // polymorphic structs to a std::function in order to enable
-// // runtime polymorphism
-// //
-// // this is a generalized framework for this sort of behavior,
-// // but it might be more efficient to redefine the template 
-// // arguments depending on the situation. Either way, they all
-// // become a functor in the end
-// template <typename ValueType, typename SourceIterator, typename DestIterator>
-// struct BufferBoundaryUpdater{
-// private:
-// 	SourceIterator 		mSrcBegin, mSrcEnd;
-// 	DestIterator		mDestBegin, mDestEnd;
-// 	std::function<void(SourceIterator, DestIterator)>	mFunct; // takes two iterators and applies the update
-// 	std::vector<ValueType> 		mBuffer;
 
-// public:
-// 	BufferBoundaryUpdater(SourceIterator sBeg, SourceIterator sEnd,
-// 					DestIterator   dBeg, DestIterator 	dEnd,
-// 					std::function<void(SourceIterator, DestIterator)> f)
-// 	: mSrcBegin(sBeg), mSrcEnd(sEnd), mDestBegin(dBeg), mDestEnd(dEnd)
-// 	, mFunct(f)
-// 	{};
-
-// 	void update(){
-// 		for(auto it = std::make_pair(mSrcBegin, mDestBegin);
-// 			it.first != mSrcEnd ; 
-// 			it.first++, it.second++){
-// 			mFunct(it.first, it.second);
-// 		}
-// 	}
-
-// 	// turn this into a functor to enable runtime polymorphism
-// 	void operator()(void) {update();}; 
-// };
+#ifdef MPI_VERSION
 
 
-// template <typename SourceIterator, typename DestIterator>
-// BufferBoundaryUpdater<SourceIterator, DestIterator> make_boundary_updater(
-// 					SourceIterator sBeg, SourceIterator sEnd,
-// 					DestIterator   dBeg, DestIterator 	dEnd,
-// 					std::function<void(SourceIterator, DestIterator)> f){
-// 	return BufferBoundaryUpdater<SourceIterator, DestIterator>(sBeg, sEnd, dBeg, dEnd, f);
-// }
+// use the default mask
 
+// use the default decorator
+
+
+
+template <typename ValueType>
+struct SendRecvBuffer{
+	typedef std::vector<ValueType> 		VectorType;
+	VectorType 		mSendBuffer;
+	VectorType 		mRecvBuffer;
+
+	void resize(std::size_t n) {mSendBuffer.resize(n); mRecvBuffer.resize(n);};
+	VectorType & send() 	{return mSendBuffer;};
+	VectorType & recv() 	{return mRecvBuffer;};
+};
+
+// an intermediate update struct made specifically
+// for the parallel boundary updates
+template <typename Mode, FieldType ft, typename SourceIterator, typename DestIterator, typename BufferPolicy>
+struct BufferBoundaryUpdater : public BufferPolicy{
+private:
+	SourceIterator 		mSrcBegin, mSrcEnd;
+	DestIterator		mDestBegin, mDestEnd;
+	// std::function<void(SourceIterator, DestIterator)>	mFunct; // takes two iterators and applies the update
+	int 				mNeighborProcRank;
+
+
+	template <typename EMField>
+	struct single_field_update{
+		static_assert(std::is_base_of<Field, EMField>::value, "Field must be a valid EMField");
+
+
+		static void buffer(BufferBoundaryUpdater & b){
+			std::cout << "attempting to buffer field " << EMField::name << std::endl;
+			// first copy to the send buffer
+			for(auto it = std::make_pair(b.mSrcBegin, b.send().begin());
+				it.first != b.mSrcEnd ; 
+				it.first++, it.second++){
+				*(it.second) = GetField<EMField>::get(*it.first);
+			}
+			std::cout << "successfully buffered field " << EMField::name << std::endl;
+		}
+
+		static void communicate(BufferBoundaryUpdater & b){
+			void * bs = &b.send().front();
+			void * rs = &b.recv().front();
+			std::cout << "attempting to communicate field " << EMField::name << std::endl;
+			std::cout << " to neighbor rank: " << b.mNeighborProcRank << std::endl;
+			std::cout << " send size: " << b.send().size() << std::endl;
+			std::cout << " recv size: " << b.recv().size() << std::endl;
+			// communicate the possibly non-native datatypes stored in buffer
+			// across neighbors
+
+
+
+			// need to define an MPI datatype for non-native datatypes
+			MPI_Status status;
+			MPI_Sendrecv(&b.send().front(), b.send().size(), MPI_DOUBLE, b.mNeighborProcRank, 0,
+						 &b.recv().front(), b.recv().size(), MPI_DOUBLE, b.mNeighborProcRank, 0,
+						 MPI_COMM_WORLD, &status);
+			std::cout << "successfully communicated field " << EMField::name << std::endl;
+		}
+
+		static void update(BufferBoundaryUpdater & b){
+			std::cout << "attempting to update field " << EMField::name << std::endl;
+
+			// now extract from the receive buffer
+			for(auto it = std::make_pair(b.mDestBegin, b.recv().begin());
+				it.first != b.mDestEnd; 
+				it.first++, it.second++){
+				GetField<EMField>::get(*it.first) = *(it.second);
+			}
+			std::cout << "successfully updated field " << EMField::name << std::endl;
+		}
+
+		static void get(BufferBoundaryUpdater & b){
+			int rnk;
+			MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
+			std::cout << " on processor rank " << rnk << " with neighbor rank " << b.mNeighborProcRank << std::endl;
+			std::cout << " which has size: " << b.recv().size() << std::endl;
+			buffer(b); update(b); communicate(b); update(b);
+			
+		}
+	};
+
+public:
+	BufferBoundaryUpdater(SourceIterator sBeg, SourceIterator 	sEnd,
+						  DestIterator   dBeg, DestIterator 	dEnd,
+						  int neighb_rank)
+	: mSrcBegin(sBeg), mSrcEnd(sEnd)
+	, mDestBegin(dBeg), mDestEnd(dEnd)
+	, mNeighborProcRank(neighb_rank)
+	{
+		std::size_t ct = 0;
+		for (auto it=dBeg; it!=dEnd; it++) ct++;
+		BufferPolicy::resize(ct);
+	};
+
+
+	// turn this into a functor to enable runtime polymorphism
+	template <FieldType f = ft>
+	std::enable_if_t<f == FieldType::Electric, void> operator()(void) {
+		std::cout << "attempting to communicate fields " << std::endl; ;
+		Detail::for_each_tuple_type<typename FieldComponents<Mode>::electric, single_field_update>(*this);
+	}; 
+
+	template <FieldType f = ft>
+	std::enable_if_t<f == FieldType::Magnetic, void> operator()(void) {
+		Detail::for_each_tuple_type<typename FieldComponents<Mode>::magnetic, single_field_update>(*this);
+	}; 
+};
+
+// std::remove_reference_t<decltype(*std::declval<SourceIterator>())>
+template <typename Mode, FieldType ft, typename SourceIterator, typename DestIterator>
+BufferBoundaryUpdater<Mode, ft, SourceIterator, DestIterator, SendRecvBuffer<double>>
+make_boundary_buffer_updater(SourceIterator sBeg, SourceIterator sEnd,
+					DestIterator   dBeg, DestIterator 	dEnd,
+					int neighb_rank){
+	return BufferBoundaryUpdater<Mode, ft, SourceIterator, DestIterator, SendRecvBuffer<double>>(sBeg, sEnd, dBeg, dEnd, neighb_rank);
+}
+
+
+
+
+// helper function to create this structure without passing the data types explicitly
+// the Functor passed in here takes an iterator and returns a reference to the parallel neighbor
+// or the location in the buffer that stores the value
+template <typename Mode, Dir d, Orientation o, typename Iterator>
+BoundaryData make_parallel_boundary(Iterator begit, Iterator endit, int nproc){
+	static_assert(d != Dir::NONE, "Must have a valid direction!");
+	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
+
+	// source iterator
+	typedef Iterator 	SourceIterator;
+	// typedef std::conditional_t<o==Orientation::MIN, Iterator, PeriodicIterator<Iterator, Functor>>			SourceIterator;
+
+	// dest iterator
+	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
+
+	// // single update
+	// typedef SingleUpdate<Mode, Boundary::Parallel, d, o> 	SingleUpdateType;
+	// SingleUpdateType s;
+
+	// whole-boundary update
+	auto upE = make_boundary_buffer_updater<Mode, FieldType::Electric>(SourceIterator(begit), SourceIterator(endit),
+									 DestIterator(begit), DestIterator(endit),
+									 nproc);
+	auto upH = make_boundary_buffer_updater<Mode, FieldType::Magnetic>(SourceIterator(begit), SourceIterator(endit),
+									 DestIterator(begit), DestIterator(endit),
+									 nproc);
+
+	return BoundaryData(Boundary::Parallel, d, o, upE, upH);
+};
+
+#endif
 
 }// end namespace fdtd
 

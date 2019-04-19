@@ -26,13 +26,13 @@ enum class Boundary : char {
 	NONE
 };
 template <> struct NameArray<Boundary>{
-  static constexpr std::array<const char *, 8> value = {"Periodic", 
-													   "BlochPeriodic", 
-													   "PEC",
-													   "PMC",
-													   "Symmetric",
-													   "Antisymmetric",
-													   "Parallel", 
+  static constexpr std::array<const char *, 8> value = {"Periodic", 		// translational symmetry
+													   "BlochPeriodic", 	// translational symmetry
+													   "PEC",				// reflection symmetry
+													   "PMC",				// reflection symmetry
+													   "Symmetric",			// reflection symmetry
+													   "Antisymmetric",		// reflection symmetry
+													   "Parallel", 			
 													   "NONE"};};
 constexpr std::array<const char *, 8> NameArray<Boundary>::value;
 
@@ -87,13 +87,13 @@ private:
 
 		template <typename SourceIterator, typename DestIterator>
 		static void get(SourceIterator && sit, DestIterator && dit, DecoratorPolicy & dec){
-			std::cout << "******** " << EMField::name << " **********" << std::endl;
-			std::cout << "before: " << GetField<EMField>::get(*dit) << std::endl;
-			std::cout << "\t decorator: " << dec.decorate() << std::endl;
-			std::cout << "\t mask: " <<  Mask<EMField, b, d, o>::value << std::endl;
-			std::cout << "\t source: " << GetField<EMField>::get(*sit) << std::endl;
+			// std::cout << "******** " << EMField::name << " **********" << std::endl;
+			// std::cout << "before: " << GetField<EMField>::get(*dit) << std::endl;
+			// std::cout << "\t decorator: " << dec.decorate() << std::endl;
+			// std::cout << "\t mask: " <<  Mask<EMField, b, d, o>::value << std::endl;
+			// std::cout << "\t source: " << GetField<EMField>::get(*sit) << std::endl;
 			GetField<EMField>::get(*dit) = dec.decorate() * Mask<EMField, b, d, o>::value * GetField<EMField>::get(*sit);
-			std::cout << "after: " << GetField<EMField>::get(*dit) << std::endl;
+			// std::cout << "after: " << GetField<EMField>::get(*dit) << std::endl;
 		}
 	};
 	
@@ -314,7 +314,7 @@ using MaxIterator = typename MaxIteratorDef<Iterator, d>::type;
 
 //***************************************************************
 
-typedef std::map<std::string, BoundaryData>	BoundaryMap;
+// typedef std::map<std::string, BoundaryData>	BoundaryMap;
 
 
 
@@ -685,23 +685,23 @@ private:
 
 
 		static void buffer(BufferBoundaryUpdater & b){
-			std::cout << "attempting to buffer field " << EMField::name << std::endl;
+			// std::cout << "attempting to buffer field " << EMField::name << std::endl;
 			// first copy to the send buffer
 			for(auto it = std::make_pair(b.mSrcBegin, b.send().begin());
 				it.first != b.mSrcEnd ; 
 				it.first++, it.second++){
 				*(it.second) = GetField<EMField>::get(*it.first);
 			}
-			std::cout << "successfully buffered field " << EMField::name << std::endl;
+			// std::cout << "successfully buffered field " << EMField::name << std::endl;
 		}
 
 		static void communicate(BufferBoundaryUpdater & b){
-			void * bs = &b.send().front();
-			void * rs = &b.recv().front();
-			std::cout << "attempting to communicate field " << EMField::name << std::endl;
-			std::cout << " to neighbor rank: " << b.mNeighborProcRank << std::endl;
-			std::cout << " send size: " << b.send().size() << std::endl;
-			std::cout << " recv size: " << b.recv().size() << std::endl;
+			// void * bs = &b.send().front();
+			// void * rs = &b.recv().front();
+			// std::cout << "attempting to communicate field " << EMField::name << std::endl;
+			// std::cout << " to neighbor rank: " << b.mNeighborProcRank << std::endl;
+			// std::cout << " send size: " << b.send().size() << std::endl;
+			// std::cout << " recv size: " << b.recv().size() << std::endl;
 			// communicate the possibly non-native datatypes stored in buffer
 			// across neighbors
 
@@ -712,11 +712,11 @@ private:
 			MPI_Sendrecv(&b.send().front(), b.send().size(), MPI_DOUBLE, b.mNeighborProcRank, 0,
 						 &b.recv().front(), b.recv().size(), MPI_DOUBLE, b.mNeighborProcRank, 0,
 						 MPI_COMM_WORLD, &status);
-			std::cout << "successfully communicated field " << EMField::name << std::endl;
+			// std::cout << "successfully communicated field " << EMField::name << std::endl;
 		}
 
 		static void update(BufferBoundaryUpdater & b){
-			std::cout << "attempting to update field " << EMField::name << std::endl;
+			// std::cout << "attempting to update field " << EMField::name << std::endl;
 
 			// now extract from the receive buffer
 			for(auto it = std::make_pair(b.mDestBegin, b.recv().begin());
@@ -724,14 +724,14 @@ private:
 				it.first++, it.second++){
 				GetField<EMField>::get(*it.first) = *(it.second);
 			}
-			std::cout << "successfully updated field " << EMField::name << std::endl;
+			// std::cout << "successfully updated field " << EMField::name << std::endl;
 		}
 
 		static void get(BufferBoundaryUpdater & b){
 			int rnk;
 			MPI_Comm_rank(MPI_COMM_WORLD, &rnk);
-			std::cout << " on processor rank " << rnk << " with neighbor rank " << b.mNeighborProcRank << std::endl;
-			std::cout << " which has size: " << b.recv().size() << std::endl;
+			// std::cout << " on processor rank " << rnk << " with neighbor rank " << b.mNeighborProcRank << std::endl;
+			// std::cout << " which has size: " << b.recv().size() << std::endl;
 			buffer(b); update(b); communicate(b); update(b);
 			
 		}
@@ -754,7 +754,7 @@ public:
 	// turn this into a functor to enable runtime polymorphism
 	template <FieldType f = ft>
 	std::enable_if_t<f == FieldType::Electric, void> operator()(void) {
-		std::cout << "attempting to communicate fields " << std::endl; ;
+		// std::cout << "attempting to communicate fields " << std::endl; ;
 		Detail::for_each_tuple_type<typename FieldComponents<Mode>::electric, single_field_update>(*this);
 	}; 
 
@@ -777,8 +777,6 @@ make_boundary_buffer_updater(SourceIterator sBeg, SourceIterator sEnd,
 
 
 // helper function to create this structure without passing the data types explicitly
-// the Functor passed in here takes an iterator and returns a reference to the parallel neighbor
-// or the location in the buffer that stores the value
 template <typename Mode, Dir d, Orientation o, typename Iterator>
 BoundaryData make_parallel_boundary(Iterator begit, Iterator endit, int nproc){
 	static_assert(d != Dir::NONE, "Must have a valid direction!");

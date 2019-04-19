@@ -1,7 +1,12 @@
 // compile with:
 // 			clang++-3.9 -std=c++14 -I../ testBoundaries.cpp -o testBoundaries
 
+// This test file is really just to test the mechanics of the
+// boundary updaters, and is NOT a test for correctness
+
+
 #include <mpi.h>
+
 
 #include <fdtd.h>
 #include "../include/BoundaryUpdates.hpp"
@@ -112,20 +117,17 @@ int main(int argc, char * argv[]){
 	// // bd_bper.updateE();
 
 
+#ifdef MPI_VERSION
 	// parallel boundary
 	std::cout << "******************************** PARALLEL BOUNDARY " << std::endl;
 	std::cout << "******************************** ----------------- " << std::endl;
 	MPI_Init(&argc, &argv);
 	int rank, neighb;
 
-	std::cout << "initialized" << std::endl;
-
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
-	std::cout << "got rank" << std::endl;
 
-	if (rank == 0) 	neighb = 1;
-	else 			neighb = 0;
+	if (rank%2 == 0) 	neighb = rank+1;
+	else 				neighb = rank-1;
 
 
 	for (auto it=v.begin(); it!=v.end(); it++){
@@ -133,7 +135,6 @@ int main(int argc, char * argv[]){
 		(*it).Ey() = rank;
 	}
 
-	std::cout << "I'm rank " << rank << " and neighbor is " << neighb << std::endl;
 	BoundaryData bd_para = make_parallel_boundary<Mode, Dir::X, Orientation::MAX>(v.begin(), v.end(), neighb);
 	bd_para.print_summary();
 	bd_para.updateE();
@@ -144,6 +145,7 @@ int main(int argc, char * argv[]){
 	}
 
 	MPI_Finalize();
+#endif
 
 	return 0;
 }

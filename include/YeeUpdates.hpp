@@ -215,9 +215,9 @@ struct BD3 : public TemporalScheme {
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>
 	static decltype(auto) get_reverse(const YeeCell & f){
-		return -21.0*FieldGetter::get(f.BD(0)) 
-			  -3.0*FieldGetter::get(f.BD(1))
-			  +23.0*FieldGetter::get(f);
+		return +21.0*FieldGetter::get(f.BD(0)) 
+			  +3.0*FieldGetter::get(f.BD(1))
+			  -23.0*FieldGetter::get(f);
 	}
 
 	template <typename EMField, typename FieldGetter = GetField<EMField>, typename YeeCell>

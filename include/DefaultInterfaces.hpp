@@ -27,81 +27,30 @@ struct GetField{
 	static_assert(std::is_same<Field, EMField>::value, "GetField needs a valid EMField");
 };
 
-template <>
-struct GetField<fdtd::Ex>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Ex();}
-};
 
-template <>
-struct GetField<fdtd::Ey>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Ey();}
-};
+#define FDTD_GET_FIELD_DEF(name) 	\
+	template <>						\
+	struct GetField<fdtd::name>{		\
+		template <class YeeCell>	\
+		static decltype(auto) get(YeeCell & f) {return f.name();}		\
+	};
 
-template <>
-struct GetField<fdtd::Ez>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Ez();}
-};
+FDTD_GET_FIELD_DEF(Ex);
+FDTD_GET_FIELD_DEF(Ey);
+FDTD_GET_FIELD_DEF(Ez);
 
+FDTD_GET_FIELD_DEF(Dx);
+FDTD_GET_FIELD_DEF(Dy);
+FDTD_GET_FIELD_DEF(Dz);
 
+FDTD_GET_FIELD_DEF(Hx);
+FDTD_GET_FIELD_DEF(Hy);
+FDTD_GET_FIELD_DEF(Hz);
 
-template <>
-struct GetField<fdtd::Dx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Dx();}
-};
+FDTD_GET_FIELD_DEF(Bx);
+FDTD_GET_FIELD_DEF(By);
+FDTD_GET_FIELD_DEF(Bz);
 
-template <>
-struct GetField<fdtd::Dy>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Dy();}
-};
-
-template <>
-struct GetField<fdtd::Dz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Dz();}
-};
-
-
-template <>
-struct GetField<fdtd::Bx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Bx();}
-};
-
-template <>
-struct GetField<fdtd::By>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.By();}
-};
-
-template <>
-struct GetField<fdtd::Bz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Bz();}
-};
-
-
-template <>
-struct GetField<fdtd::Hx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Hx();}
-};
-
-template <>
-struct GetField<fdtd::Hy>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Hy();}
-};
-
-template <>
-struct GetField<fdtd::Hz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Hz();}
-};
 
 
 //************************************************************
@@ -164,6 +113,7 @@ struct PMLCoeff<true>{
 
 	template <class YeeCell>
 	static double pmlHKz(YeeCell & f) {return f.pmlHKz();};
+
 };
 
 

@@ -10,6 +10,21 @@
 namespace fdtd{
 
 
+// declare a stored private member variable
+// of given type
+// and expose public accessors functions with
+// given name
+#define FDTD_DECLARE_MEMBER(type, name)     \
+  private:                                  \
+    type  m ## name;                        \
+  public:                                   \
+    const type & name() const {return m ## name;};  \
+    type &     name()     {return m ## name;};
+
+
+
+// struct for naming things... easier to output generalized
+// stuff to streams this way
 template <typename T> struct NameArray{
   static_assert(std::is_enum<T>::value, "NameArray can only be defined for enum classes!");
 };

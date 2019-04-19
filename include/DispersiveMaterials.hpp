@@ -2,6 +2,7 @@
 #define _DISPERSIVEMATERIALS_H
 
 #include "FDTDConstants.hpp"
+#include "DefaultInterfaces.hpp"
 
 namespace fdtd{
 
@@ -29,83 +30,63 @@ struct VacuumMagnetization{
 //************************************************************
 //************************************************************
 //************************************************************
-//************************************************************
+//************************************************************		
 
 
 template <typename scalar_type = double>
 struct SinglePolarization{
-	scalar_type mPx, mPy, mPz;
 	double mPermittivityR;
+	const double & permittivity_r() const {return mPermittivityR;};
+	double & permittivity_r() {return mPermittivityR;}
+
+	FDTD_DECLARE_MEMBER(scalar_type, Px);
+	FDTD_DECLARE_MEMBER(scalar_type, Py);
+	FDTD_DECLARE_MEMBER(scalar_type, Pz);
+
 
 	SinglePolarization()
 	: mPermittivityR(1.0)
 	, mPx(0.0), mPy(0.0), mPz(0.0) {};
-
-	const double & permittivity_r() const {return mPermittivityR;};
-	const scalar_type & Px() const {return mPx;};
-	const scalar_type & Py() const {return mPy;};
-	const scalar_type & Pz() const {return mPz;};
-
-
-	double & permittivity_r() {return mPermittivityR;}
-	scalar_type & Px() {return mPx;};
-	scalar_type & Py() {return mPy;};
-	scalar_type & Pz() {return mPz;};
 };
 
 template <typename scalar_type = double>
 struct DoublePolarization : public SinglePolarization<scalar_type>{
-	scalar_type mJx, mJy, mJz;
+
+	FDTD_DECLARE_MEMBER(scalar_type, Jx);
+	FDTD_DECLARE_MEMBER(scalar_type, Jy);
+	FDTD_DECLARE_MEMBER(scalar_type, Jz);
 
 	DoublePolarization()
 	: SinglePolarization<scalar_type>(), mJx(0.0), mJy(0.0), mJz(0.0) {};
 
 
-	const scalar_type & Jx() const {return mJx;};
-	const scalar_type & Jy() const {return mJy;};
-	const scalar_type & Jz() const {return mJz;};
-
-
-	// double & permittivity_r() {return mPermittivityR;}
-	scalar_type & Jx() {return mJx;};
-	scalar_type & Jy() {return mJy;};
-	scalar_type & Jz() {return mJz;};
 };
 
 template <typename scalar_type = double>
 struct SingleMagnetization{
-	scalar_type mMx, mMy, mMz;
 	double mPermeabilityR;
+	const double & permeability_r() const {return mPermeabilityR;};
+	double & permeability_r() {return mPermeabilityR;}
+
+	FDTD_DECLARE_MEMBER(scalar_type, Mx);
+	FDTD_DECLARE_MEMBER(scalar_type, My);
+	FDTD_DECLARE_MEMBER(scalar_type, Mz);
 
 	SingleMagnetization()
 	: mPermeabilityR(1.0)
 	, mMx(0.0), mMy(0.0), mMz(0.0) {};
-
-	const double & permeability_r() const {return mPermeabilityR;};
-	const scalar_type & Mx() const {return mMx;};
-	const scalar_type & My() const {return mMy;};
-	const scalar_type & Mz() const {return mMz;};
-
-	double & permeability_r() {return mPermeabilityR;}
-	scalar_type & Mx() {return mMx;};
-	scalar_type & My() {return mMy;};
-	scalar_type & Mz() {return mMz;};
 };
 
 template <typename scalar_type = double>
 struct DoubleMagnetization : public SingleMagnetization<scalar_type>{
-	scalar_type mKx, mKy, mKz;
+	
+	FDTD_DECLARE_MEMBER(scalar_type, Kx);
+	FDTD_DECLARE_MEMBER(scalar_type, Ky);
+	FDTD_DECLARE_MEMBER(scalar_type, Kz);
 
 	DoubleMagnetization()
 	: SingleMagnetization<scalar_type>(), mKx(0.0), mKy(0.0), mKz(0.0) {};
 
-	const scalar_type & Kx() const {return mKx;};
-	const scalar_type & Ky() const {return mKy;};
-	const scalar_type & Kz() const {return mKz;};
-
-	scalar_type & Kx() {return mKx;};
-	scalar_type & Ky() {return mKy;};
-	scalar_type & Kz() {return mKz;};
 };
 
 
@@ -204,83 +185,21 @@ template <> struct PolarizationComponent<FieldType::Magnetic, Dir::X>{typedef Mx
 template <> struct PolarizationComponent<FieldType::Magnetic, Dir::Y>{typedef My type;};
 template <> struct PolarizationComponent<FieldType::Magnetic, Dir::Z>{typedef Mz type;};
 
+					
 
+FDTD_GET_FIELD_DEF(Jx);
+FDTD_GET_FIELD_DEF(Jy);
+FDTD_GET_FIELD_DEF(Jz);
+FDTD_GET_FIELD_DEF(Px);
+FDTD_GET_FIELD_DEF(Py);
+FDTD_GET_FIELD_DEF(Pz);
+FDTD_GET_FIELD_DEF(Kx);
+FDTD_GET_FIELD_DEF(Ky);
+FDTD_GET_FIELD_DEF(Kz);
+FDTD_GET_FIELD_DEF(Mx);
+FDTD_GET_FIELD_DEF(My);
+FDTD_GET_FIELD_DEF(Mz);
 
-template <>
-struct GetField<fdtd::Jx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Jx();}
-};
-
-template <>
-struct GetField<fdtd::Jy>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Jy();}
-};
-
-template <>
-struct GetField<fdtd::Jz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Jz();}
-};
-
-
-
-template <>
-struct GetField<fdtd::Px>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Px();}
-};
-
-template <>
-struct GetField<fdtd::Py>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Py();}
-};
-
-template <>
-struct GetField<fdtd::Pz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Pz();}
-};
-
-
-template <>
-struct GetField<fdtd::Kx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Kx();}
-};
-
-template <>
-struct GetField<fdtd::Ky>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Ky();}
-};
-
-template <>
-struct GetField<fdtd::Kz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Kz();}
-};
-
-
-template <>
-struct GetField<fdtd::Mx>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Mx();}
-};
-
-template <>
-struct GetField<fdtd::My>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.My();}
-};
-
-template <>
-struct GetField<fdtd::Mz>{
-	template <class YeeCell>
-	static decltype(auto) get(YeeCell & f) {return f.Mz();}
-};
 
 //************************************************************
 //************************************************************
@@ -383,7 +302,7 @@ namespace constant{
 // This is very generalized and pretty good, but it would be convenient to have a type
 // that could store the material parameters within the struct itself
 template <class Mode, 
-		  FieldType ftype = FieldType::Electric,
+		  FieldType ftype,
 		  bool forward = false,
 		  class StaticValue = StoredValue>
 struct ConstantUpdate : public StaticValue

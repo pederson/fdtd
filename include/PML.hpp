@@ -5,8 +5,45 @@
 #include <algorithm>
 
 #include "FDTDConstants.hpp"
+#include "YeeUpdates.hpp"
 
 namespace fdtd{
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+struct GetPML{
+	template <FieldType ft, Dir I, Dir J, typename YeeCell>
+	static decltype(auto) integrator(YeeCell && f){return f.template pmlI<ft, I, J>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) B(YeeCell && f){return f.template pmlB<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) C(YeeCell && f){return f.template pmlC<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) F(YeeCell && f){return f.template pmlF<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) G(YeeCell && f){return f.template pmlG<ft, I>();};
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 
@@ -34,6 +71,14 @@ public:
 
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 template<typename Mode, typename scalar_type> class StoredPMLx;
 template<typename Mode, typename scalar_type> class StoredPMLy;
 template<typename Mode, typename scalar_type> class StoredPMLz;	
@@ -58,7 +103,63 @@ public:
 
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
+
+
+template <typename Mode, FieldType ft, Dir d,
+		  template <typename> class FieldPolicy = GetField,
+		  template <typename,Dir> class DifferencePolicy = DefaultDifferenceOperator>
+struct UpdatePML{
+private:
+	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+	// static_assert(!std::is_same<d, Dir::NONE>::value, "PML Update needs a valid direction");
+
+	template <typename EMField>
+	struct atomic_update{
+		static constexpr Dir I = FieldDir<EMField>::value;
+		static constexpr Dir 			J = d;
+		static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
+
+		// perpendicular components get updated
+		template <typename YeeCell, Dir di = d>
+		static std::enable_if_t<di != I, void> 
+		get(YeeCell && f, double dt, double dx){
+			// modify the flux
+			GetField<EMField>::get(f) += yu_details::Coeff<ft>::value*dt*GetPML::integrator<ft, I, J>(f)*GetPML::G<ft, J>(f);
+			// update the integrator
+			GetPML::integrator<ft, I, J>(f) = 	GetPML::B<ft, J>(f)*GetPML::integrator<ft, I, J>(f) + 
+												GetPML::C<ft, J>(f)*LeviCivita<I, J, K>::value/dx*DifferencePolicy<typename FieldComponent<yu_details::CurlType<ft>::value, K>::type, J>::get(f);
+		}
+
+		// parallel components do nothing
+		template <typename YeeCell, Dir di = d>
+		static std::enable_if_t<di == I, void> 
+		get(YeeCell && f, double dt, double dx){};
+	};
+
+
+public:
+	template <typename YeeCell>
+	void update(YeeCell && f, double delt, double delx){
+		// loop through all the fluxes and apply update to each
+		Detail::for_each_tuple_type<
+				 std::conditional_t<ft == FieldType::Electric, 
+				 					typename FieldComponents<Mode>::electric_flux,
+				 					typename FieldComponents<Mode>::magnetic_flux>, 
+				 					atomic_update>(f, delt, delx);
+	}
+
+	template <typename YeeCell>
+	void operator()(YeeCell && f, double delt, double delx){
+		update(std::forward<YeeCell>(f), delt, delx);
+	}
+};
 
 
 
@@ -546,7 +647,7 @@ struct UpdatePMLB<ThreeD, Dir::Z>{
 
 
 
-// specialization for TM *AND* direction
+// specialization for TE *AND* direction
 template <>
 struct UpdatePMLB<TE, Dir::X>{
 	double dt, dx;
@@ -697,7 +798,6 @@ struct NoPMLx{
 
 	// derived PML parameters
 	constexpr double pmlHBx() const {return 1.0;};
-
 	constexpr double pmlHCx() const {return 0.0;};
 
 
@@ -948,6 +1048,8 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 	// derived PML parameters
 	double EBx;
 	double ECx;
+	double EFx;
+	double EGx;
 
 
 	// PML parameters
@@ -958,14 +1060,16 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 	// derived PML parameters
 	double HBx;
 	double HCx;
+	double HFx;
+	double HGx;
 
 
 	StoredPMLx()
 	: PMLIx<Mode, scalar_type>()
 	, EKx(1.0), ESx(0.0), EAx(0.0)
-	, EBx(1.0), ECx(0.0)
+	, EBx(1.0), ECx(0.0), EFx(1.0), EGx(0.0)
 	, HKx(1.0), HSx(0.0), HAx(0.0)
-	, HBx(1.0), HCx(0.0) {};
+	, HBx(1.0), HCx(0.0), HFx(1.0), HGx(0.0)  {};
 
 	// StoredPMLx<ThreeD>(double K, double S, double A, double dt)
 	// : EKx(K), ESx(S), EAx(A)
@@ -980,6 +1084,11 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 		ECx = (S==0 && A == 0) ? 0.0 : ESx/EKx*1.0/(ESx+EKx*EAx)*(EBx-1.0);
 		// EBx = exp(-dt/eps0*EAx);
 		// ECx = (S==0 && A == 0) ? 0.0 : ESx/(ESx+EAx)*(EBx-1.0);
+		
+		double nu = dt/eps0*(ESx/EKx + EAx);
+		double u  = -ESx/(eps0*EKx*EKx);
+		EFx = (nu==0) ? 1.0/EKx : 1.0/EKx - 1.0/dt*(1.0-EBx - nu*dt)*u/(nu*nu);
+		EGx = (S==0 && A == 0) ? 0.0 : (1.0-EBx)/nu;
 	}
 
 	void setPMLParametersHx(double K, double S, double A, double dt){
@@ -988,6 +1097,11 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 		HCx = (S==0 && A == 0) ? 0.0 : HSx/HKx*1.0/(HSx+HKx*HAx)*(HBx-1.0);
 		// HBx = exp(-dt/eps0*HAx);
 		// HCx = (S==0 && A == 0) ? 0.0 : HSx/(HSx+HAx)*(HBx-1.0);
+		
+		double nu = dt/eps0*(HSx/HKx + HAx);
+		double u  = -HSx/(eps0*HKx*HKx);
+		HFx = (nu==0) ? 1.0/HKx : 1.0/HKx - 1.0/dt*(1.0-HBx - nu*dt)*u/(nu*nu);
+		HGx = (S==0 && A == 0) ? 0.0 : (1.0-HBx)/nu;
 	}
 
 
@@ -1004,8 +1118,14 @@ struct StoredPMLx : public PMLIx<Mode, scalar_type>{
 	constexpr double & pmlEBx() {return EBx;};
 	constexpr double & pmlECx() {return ECx;};
 
+	constexpr double & pmlEFx() {return EFx;};
+	constexpr double & pmlEGx() {return EGx;};
+
 	constexpr double & pmlHBx() {return HBx;};
 	constexpr double & pmlHCx() {return HCx;};
+
+	constexpr double & pmlHFx() {return HFx;};
+	constexpr double & pmlHGx() {return HGx;};
 };
 
 
@@ -1149,6 +1269,8 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 	// derived PML parameters
 	double EBy;
 	double ECy;
+	double EFy;
+	double EGy;
 
 
 	// PML parameters
@@ -1159,14 +1281,16 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 	// derived PML parameters
 	double HBy;
 	double HCy;
+	double HFy;
+	double HGy;
 
 
 	StoredPMLy()
 	: PMLIy<Mode, scalar_type>()
 	, EKy(1.0), ESy(0.0), EAy(0.0)
-	, EBy(1.0), ECy(0.0)
+	, EBy(1.0), ECy(0.0), EFy(1.0), EGy(0.0)
 	, HKy(1.0), HSy(0.0), HAy(0.0)
-	, HBy(1.0), HCy(0.0) {};
+	, HBy(1.0), HCy(0.0), HFy(1.0), HGy(0.0) {};
 
 
 	// StoredPMLy<ThreeD>(double K, double S, double A, double dt)
@@ -1180,12 +1304,22 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 		EKy = K; ESy = S; EAy = A;
 		EBy = exp(-dt/eps0*(ESy/EKy + EAy));
 		ECy = (S==0 && A == 0) ? 0.0 : ESy/EKy*1.0/(ESy+EKy*EAy)*(EBy-1.0);
+	
+		double nu = dt/eps0*(ESy/EKy + EAy);
+		double u  = -ESy/(eps0*EKy*EKy);
+		EFy = (nu==0) ? 1.0/EKy : 1.0/EKy - 1.0/dt*(1.0-EBy - nu*dt)*u/(nu*nu);
+		EGy = (S==0 && A == 0) ? 0.0 : (1.0-EBy)/nu;
 	}
 
 	void setPMLParametersHy(double K, double S, double A, double dt){
 		HKy = K; HSy = S; HAy = A;
 		HBy = exp(-dt/eps0*(HSy/HKy + HAy));
 		HCy = (S==0 && A == 0) ? 0.0 : HSy/HKy*1.0/(HSy+HKy*HAy)*(HBy-1.0);
+	
+		double nu = dt/eps0*(HSy/HKy + HAy);
+		double u  = -HSy/(eps0*HKy*HKy);
+		HFy = (nu==0) ? 1.0/HKy : 1.0/HKy - 1.0/dt*(1.0-HBy - nu*dt)*u/(nu*nu);
+		HGy = (S==0 && A == 0) ? 0.0 : (1.0-HBy)/nu;
 	}
 
 
@@ -1202,8 +1336,16 @@ struct StoredPMLy : public PMLIy<Mode, scalar_type>{
 	constexpr double & pmlEBy() {return EBy;};
 	constexpr double & pmlECy() {return ECy;};
 
+	constexpr double & pmlEFy() {return EFy;};
+	constexpr double & pmlEGy() {return EGy;};
+
 	constexpr double & pmlHBy() {return HBy;};
 	constexpr double & pmlHCy() {return HCy;};
+
+	constexpr double & pmlHFy() {return HFy;};
+	constexpr double & pmlHGy() {return HGy;};
+
+	
 };
 
 

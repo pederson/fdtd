@@ -11,7 +11,7 @@ struct NoSurfaceQuantities{};
 struct NoExtra{};
 
 
-// PML model has dispersion X_v = K_v*E + S_v/(jW + A_v)
+// PML model has dispersion X_v = K_v + S_v/(jW + A_v)
 // and convolutional terms I_{w,v} where w and v = {x,y,z}
 struct NoPML{
 

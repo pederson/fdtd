@@ -81,6 +81,22 @@ namespace Detail{
   };
 
   
+
+  // check if a tuple has a certain type T in its template parameters
+  template <typename T, typename Tuple>
+  struct has_type;
+
+  template <typename T>
+  struct has_type<T, std::tuple<>> : std::false_type {};
+
+  template <typename T, typename U, typename... Ts>
+  struct has_type<T, std::tuple<U, Ts...>> : has_type<T, std::tuple<Ts...>> {};
+
+  template <typename T, typename... Ts>
+  struct has_type<T, std::tuple<T, Ts...>> : std::true_type {};
+
+  template <typename T, typename Tuple>
+  using tuple_contains_type = typename has_type<T, Tuple>::type;
 }
 
 /*
@@ -123,12 +139,12 @@ struct ThreeD : public EMMode{static const std::size_t dim=3;
 
 
 enum class FieldType : char{
-  NONE,
-  Electric,
-  Magnetic
+  Electric = 0,
+  Magnetic,
+  NONE
 };
 template <> struct NameArray<FieldType>{
-  static constexpr std::array<const char *, 3> value = {"NONE", "Electric", "Magnetic"};
+  static constexpr std::array<const char *, 3> value = {"Electric", "Magnetic", "NONE"};
 };
 constexpr std::array<const char *, 3> NameArray<FieldType>::value;
 

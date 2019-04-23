@@ -141,7 +141,30 @@ struct PMLCoeff<false>{
 };
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
+// default PML interface
+struct GetPML{
+	template <FieldType ft, Dir I, Dir J, typename YeeCell>
+	static decltype(auto) integrator(YeeCell && f){return f.template pmlI<ft, I, J>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) B(YeeCell && f){return f.template pmlB<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) C(YeeCell && f){return f.template pmlC<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) F(YeeCell && f){return f.template pmlF<ft, I>();};
+
+	template <FieldType ft, Dir I, typename YeeCell>
+	static decltype(auto) G(YeeCell && f){return f.template pmlG<ft, I>();};
+};
 
 //************************************************************
 //************************************************************

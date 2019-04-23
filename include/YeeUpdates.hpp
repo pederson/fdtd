@@ -69,7 +69,6 @@ using BackwardDifferenceOperator = typename BackwardDifferenceTypedef<d, FieldGe
 
 
 
-
 //************************************************************
 //************************************************************
 //************************************************************
@@ -77,52 +76,6 @@ using BackwardDifferenceOperator = typename BackwardDifferenceTypedef<d, FieldGe
 //************************************************************
 //************************************************************
 
-
-// Define components of the curl operator
-template <Dir I, Dir J, 
-		  typename FieldGetter, 
-		  template<Dir, typename> class DifferenceOperator>
-struct CurlOperator{
-	// Default, return 0
-	template <class Object>
-	static constexpr decltype(auto) get(Object && f, double delta_x){
-		return LeviCivita<MutuallyOrthogonal<I,J>::value,I,J>::get()*DifferenceOperator<MutuallyOrthogonal<I,J>::value,FieldGetter>::get(f)/delta_x;
-	};
-};
-
-// specializations for zero components
-template <typename FieldGetter, 
-		  template<Dir, typename> class DifferenceOperator>
-struct CurlOperator<Dir::X, Dir::X, FieldGetter, DifferenceOperator>
-{
-	template <class Object>
-	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
-};
-
-template <typename FieldGetter, 
-		  template<Dir, typename> class DifferenceOperator>
-struct CurlOperator<Dir::Y, Dir::Y, FieldGetter, DifferenceOperator>
-{
-	template <class Object>
-	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
-};
-
-template <typename FieldGetter, 
-		  template<Dir, typename> class DifferenceOperator>
-struct CurlOperator<Dir::Z, Dir::Z, FieldGetter, DifferenceOperator>
-{
-	template <class Object>
-	static constexpr decltype(auto) get(Object && f, double delta_x){return 0.0;};
-};
-
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
 
 
 // Define difference operators on YeeCell objects
@@ -169,6 +122,53 @@ struct DefaultDifferenceOperatorTypedef{
 };
 template <typename EMField, Dir d>
 using DefaultDifferenceOperator = typename DefaultDifferenceOperatorTypedef<EMField, d>::type;
+
+
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+// Define components of the curl operator
+template <Dir I, Dir J, 
+		  typename FieldGetter,
+		  typename DeltaXPolicy, 
+		  template<Dir, typename> class DifferenceOperator>
+struct CurlOperator{
+	// Diagonal components are zero 0
+	template <typename Object>
+	static constexpr std::enable_if_t<I==J, decltype(FieldGetter::get(std::declval<Object>()))>
+	get(Object && o) {return 0.0;};
+
+	template <typename Object>
+	static constexpr std::enable_if_t<I!=J, decltype(FieldGetter::get(std::declval<Object>()))>
+	get(Object && o) {
+		return LeviCivita<MutuallyOrthogonal<I,J>::value,I,J>::value*DifferenceOperator<MutuallyOrthogonal<I,J>::value,FieldGetter>::get(o)/DeltaXPolicy::get();
+	};
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+// template <typename EMField, Dir I, Dir J>
+// struct FDTDCurlOperatorTypedef
+// {
+// 	typedef CurlOperator<I,J,GetField<EMField>,PMLDeltaX,DefaultDifferenceOperator<EMField, I>> type;
+// };
+// template <typename EMField, Dir I, Dir J>
+// using FDTDCurlOperator = typename FDTDCurlOperatorTypedef<EMField, I, J>::type;
+
 
 //************************************************************
 //************************************************************
@@ -343,7 +343,7 @@ namespace yu_details{
 template <class Mode, 
 		  class EMField,
 		  class TimePolicy 			= BD1, 
-		  class PMLCoeffPolicy 		= PMLCoeff<true>,
+		  class PMLCoeffPolicy 		= GetPML,
 		  template <typename> class FieldPolicy = GetField,
 		  template <typename,Dir> class DifferencePolicy = DefaultDifferenceOperator>
 struct YeeUpdate : public TimePolicy{
@@ -354,23 +354,58 @@ private:
 
 	typedef FieldPolicy<EMField> 	FP;
 	typedef TimePolicy 				TP;
+	typedef PMLCoeffPolicy 			PML;
 	// typedef DifferencePolicy 		DP;
 	static constexpr Dir 			I = FieldDir<EMField>::value;
 	static constexpr FieldType 		FT = EMField::field_type;
 
-	// using TimePolicy::increment;	
-	// using TimePolicy::get;
+	// this is the curl update for one direction
+	template <Dir d>
+	struct atomic_update{
+		static constexpr Dir 			J = d;
+		static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
+		static constexpr FieldType 		CurlType =  yu_details::CurlType<FT>::value;
+		typedef typename FieldComponent<CurlType, K>::type 	CurlField;
+		typedef std::conditional_t<CurlType == FieldType::Electric,
+								   typename FieldComponents<Mode>::electric,
+								   typename FieldComponents<Mode>::magnetic> 	tuple_type;
+
+		template <typename YeeCell>
+		static constexpr std::enable_if_t<Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
+		get(YeeCell && f, double delx){
+			return LeviCivita<I, J, K>::value*GetPML::F<FT, J>(f)/(delx)*DifferencePolicy<CurlField, J>::get(f);
+		}
+
+		template <typename YeeCell>
+		static constexpr std::enable_if_t<!Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
+		get(YeeCell && f, double delx){
+			return 0.0;
+		}
+	};
 
 public:
 	YeeUpdate(double deltat, double deltax): dt(deltat), dx(deltax) {};
 
-	// template <class YeeCell>
-	// void operator()(YeeCell && f){
-	// 	update(f, dt, dx);
-	// };
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		update_all(f, dt, dx);
+	};
 
 	// update with the curl term given, with increment of the time policy
-	template <class YeeCell, typename ValueType, typename T = EMField>
+	template <class YeeCell>
+	static void	update_all(YeeCell && f, double delt, double delx){
+		static constexpr Dir d1 = (I == Dir::X ? Dir::Y : (I == Dir::Y ? Dir::Z : Dir::X));
+		static constexpr Dir d2 = MutuallyOrthogonal<I, d1>::value;
+
+		auto hold = FP::get(f);
+		FP::get(f) = TimePolicy::template get<EMField, FP>(f)
+					+yu_details::Coeff<FT>::value*TimePolicy::curl_coeff*delt*(atomic_update<d1>::get(f, delx) + atomic_update<d2>::get(f, delx));
+
+		TimePolicy::template increment<EMField, FP>(f, hold);
+	}	
+
+	// update with the curl term given, with increment of the time policy
+	template <class YeeCell, typename ValueType>
 	static void	update(YeeCell && f, double delt, ValueType curl){
 		auto hold = FP::get(f);
 		FP::get(f) = TimePolicy::template get<EMField, FP>(f)
@@ -380,20 +415,20 @@ public:
 	}	
 
 	// update in a single direction, with increment of the time policy
-	template <Dir d, class YeeCell, typename T = EMField>
+	template <Dir d, class YeeCell>
 	static void	update(YeeCell && f, double delt, double delx){
 		static constexpr Dir 			J = d;
 		static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
 
 		auto hold = FP::get(f);
 		FP::get(f) = TimePolicy::template get<EMField, FP>(f)
-					+yu_details::Coeff<FT>::value*LeviCivita<I, J, K>::value*TimePolicy::curl_coeff*delt/delx*DifferencePolicy<typename FieldComponent<yu_details::CurlType<FT>::value, K>::type, J>::get(f);
+					+PML::F<FT, K>(f)*yu_details::Coeff<FT>::value*LeviCivita<I, J, K>::value*TimePolicy::curl_coeff*delt/delx*DifferencePolicy<typename FieldComponent<yu_details::CurlType<FT>::value, K>::type, J>::get(f);
 
 		TimePolicy::template increment<EMField, FP>(f, hold);
 	}
 
 	// update with left and right values provided as input
-	template <Dir d, class YeeCell, typename ValueType, typename T = EMField>
+	template <Dir d, class YeeCell, typename ValueType>
 	static void	update(YeeCell && f, double delt, double delx, ValueType right, ValueType left){
 		static constexpr Dir 			J = d;
 		static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
@@ -826,44 +861,6 @@ inline void updateDz3D(FieldType & Dz, const FieldType & Hx, const FieldType & H
 //************************************************************
 //************************************************************
 //************************************************************
-
-// // Atomic Yee updates for a given component along any given direction
-// // does not include PML or non-standard time-stepping schemes
-// template <typename EMField,
-// 		  Dir d,
-// 		  template <typename> class FieldPolicy = GetField>
-// struct YeeUpdate{
-// private:
-// 	static_assert(std::is_base_of<Field, EMField>::value, "YeeUpdate needs a valid EMField");
-// 	double dt, dx;
-
-// 	template <Dir dd, typename FieldGetter>
-// 	struct BDOTypedef{typedef BackwardDifferenceOperator<dd, FieldGetter, GetNeighbor> type;};
-// 	template <Dir dd, typename FieldGetter>
-// 	using BDO = typename BDOTypedef<dd, FieldGetter>::type;
-
-// 	template <Dir dd, typename FieldGetter>
-// 	struct FDOTypedef{typedef ForwardDifferenceOperator<dd, FieldGetter, GetNeighbor> type;};
-// 	template <Dir dd, typename FieldGetter>
-// 	using FDO = typename FDOTypedef<dd, FieldGetter>::type;
-
-// public:
-
-
-// 	YeeUpdate<EMField, d, FieldPolicy>(double deltat, double deltax): dt(deltat), dx(deltax) {};
-
-// 	template<class YeeCell, bool C = IsElectric<EMField>::value>
-// 	typename std::enable_if<C==true,void>::type 
-// 	operator()(YeeCell && f){
-// 		FieldPolicy<EMField>::get(f) += dt*CurlOperator<FieldDir<EMField>::value, MutuallyOrthogonal<FieldDir<EMField>::value,d>::value, FieldPolicy<EMField>, BDO>::get(f, dx);
-// 	};
-
-// 	template<class YeeCell, bool C = IsElectric<EMField>::value>
-// 	typename std::enable_if<C==false,void>::type  
-// 	operator()(YeeCell && f){
-// 		FieldPolicy<EMField>::get(f) -= dt*CurlOperator<FieldDir<EMField>::value, MutuallyOrthogonal<FieldDir<EMField>::value,d>::value, FieldPolicy<EMField>, FDO>::get(f, dx);
-// 	};
-// };
 
 
 

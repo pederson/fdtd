@@ -86,15 +86,15 @@ public:
 		pmlS<ft, I>() = S;
 		pmlA<ft, I>() = A;
 
-		double nu = dt/eps0*(S/K + A);
-		pmlB<ft, I>() = exp(-nu);
+		double nu = 1.0/eps0*(S/K + A);
+		pmlB<ft, I>() = exp(-dt*nu);
 		pmlC<ft, I>() = (nu==0) ? 0.0 : S/K*1.0/(S+K*A)*(pmlB<ft, I>()-1.0);
 		
-		pmlF<ft, I>() = 1.0/K ;
-		pmlG<ft, I>() = 1.0;
-		// double u = -S/(eps0*K*K);
-		// pmlF<ft, I>() = (nu==0) ? 1.0/K : 1.0/K - 1.0/dt*(1.0-pmlB<ft, I>() - nu*dt)*u/(nu*nu);
-		// pmlG<ft, I>() = (nu==0) ? 1.0	: 1.0/dt*(1.0-pmlB<ft, I>())/nu;
+		// pmlF<ft, I>() = 1.0/K ;
+		// pmlG<ft, I>() = 1.0;
+		double u = -S/(eps0*K*K);
+		pmlF<ft, I>() = (nu==0) ? 1.0/K : 1.0/K - 1.0/dt*(1.0-pmlB<ft, I>() - nu*dt)*u/(nu*nu);
+		pmlG<ft, I>() = (nu==0) ? 0.0	: 1.0/dt*(1.0-pmlB<ft, I>())/nu;
 	}
 };
 

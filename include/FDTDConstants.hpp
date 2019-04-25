@@ -10,6 +10,14 @@
 namespace fdtd{
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 // declare a stored private member variable
 // of given type
 // and expose public accessors functions with
@@ -21,6 +29,13 @@ namespace fdtd{
     const type & name() const {return m ## name;};  \
     type &     name()     {return m ## name;};
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 // struct for naming things... easier to output generalized
@@ -50,6 +65,13 @@ T MapNameTo(std::string name){
   return static_cast<T>(idx);
 }
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 
 namespace Detail
 {
@@ -60,6 +82,29 @@ namespace Detail
             : sqrtNewtonRaphson(x, 0.5 * (curr + x / curr), curr);
     }
 }
+
+
+/*
+* Constexpr version of the square root
+* Return value:
+*   - For a finite and non-negative value of "x", returns an approximation for the square root of "x"
+*   - Otherwise, returns NaN
+*/
+double constexpr sqrt(double x)
+{
+    return x >= 0 && x < std::numeric_limits<double>::infinity()
+        ? Detail::sqrtNewtonRaphson(x, x, 0)
+        : std::numeric_limits<double>::quiet_NaN();
+}
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 
 namespace Detail{
 
@@ -101,6 +146,32 @@ namespace Detail{
     for_each_tuple_type_struct<TupleType, std::tuple_size<TupleType>::value-1, Fctor>::get(std::forward<Args>(args)...);
   };
 
+
+  template <std::size_t I>
+  struct IndexWrapper{
+    typedef std::size_t type;
+    static constexpr type value = I;
+  };
+
+  template <std::size_t I, std::size_t Iend>
+  struct CreateTupleRange
+  {
+  private:
+    template <typename T>
+    struct CreateTuple{};
+
+    template <std::size_t ... Idx>
+    struct CreateTuple<std::index_sequence<Idx...>>{
+      typedef std::tuple<IndexWrapper<Idx+I>...> type;
+    };
+
+    typedef std::make_index_sequence<Iend+1-I>  IdxSeq;
+  public:
+    typedef typename CreateTuple<IdxSeq>::type  type;
+  };
+
+  template <std::size_t begin, std::size_t end>
+  using RangeTuple = typename CreateTupleRange<begin, end>::type;
 
 
 
@@ -222,28 +293,6 @@ namespace Detail{
     }
   };
 
-
-
-  // template<typename AggregateTuple, typename TupleType, template<typename> class Fctor>
-  // struct nested_for_each_tuple_type_struct<TupleType, 0, Fctor> {
-  //   template <typename... Args>
-  //   static void get(Args && ... args) {
-  //     // //Call get() of Fctor
-  //     Fctor<std::tuple_element_t<0,TupleType>>::get(std::forward<Args>(args)...);
-  //   }
-  // };
-
-
-  // Fctor is a templated class with a single template parameter. 
-  // it is expected to contain a static function get() that accepts the same 
-  // number of arguments as are passed into this function
-  //
-  // Fctor<T>::get(Args...) is called for each type T in the tuple 
-  template<template<typename...> class Fctor, typename TupleType1, typename... TupleTypes, typename... Args>
-  void nested_for_each_tuple_type(Args && ... args) {
-    nested_for_each_tuple_type_struct<std::tuple<>, std::tuple_size<TupleType1>::value-1, Fctor, TupleType1, TupleTypes...>::get(std::forward<Args>(args)...);
-  };
-
   
 
   // check if a tuple has a certain type T in its template parameters
@@ -261,20 +310,27 @@ namespace Detail{
 
   template <typename T, typename Tuple>
   using tuple_contains_type = typename has_type<T, Tuple>::type;
-}
+} // end namespace detail
 
-/*
-* Constexpr version of the square root
-* Return value:
-*   - For a finite and non-negative value of "x", returns an approximation for the square root of "x"
-*   - Otherwise, returns NaN
-*/
-double constexpr sqrt(double x)
-{
-    return x >= 0 && x < std::numeric_limits<double>::infinity()
-        ? Detail::sqrtNewtonRaphson(x, x, 0)
-        : std::numeric_limits<double>::quiet_NaN();
-}
+
+// Fctor is a templated class with a single template parameter. 
+// it is expected to contain a static function get() that accepts the same 
+// number of arguments as are passed into this function
+//
+// Fctor<T>::get(Args...) is called for each type T in the tuple 
+template<template<typename...> class Fctor, typename... TupleTypes, typename... Args>
+void nested_for_each_tuple_type(Args && ... args) {
+  Detail::nested_for_each_tuple_type_struct<std::tuple<>, std::tuple_size<typename Detail::FirstType<TupleTypes...>::type>::value-1, Fctor, TupleTypes...>::get(std::forward<Args>(args)...);
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 
 
 static constexpr double pi = 3.14159265358979323846264338327950288; 
@@ -284,22 +340,60 @@ static constexpr double c0 = 2.99792458e+8;	/**< speed of light in a vacuum */
 static constexpr double imp0 = sqrt(mu0/eps0); /**< free space impedance */
 
 
-struct EMMode{};
-struct TE : public EMMode{static const std::size_t dim=2;
-                          static const std::size_t numE=2;
-                          static const std::size_t numH=1;};
-struct TM : public EMMode{static const std::size_t dim=2;
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+namespace Detail{
+  enum class EMMode : char{
+    TEM = 0,
+    TE,
+    TM,
+    ThreeD
+  };
+}
+
+template <> struct NameArray<Detail::EMMode>{
+  static constexpr std::array<const char *, 4> value = {"TEM", "TE", "TM", "ThreeD"};
+};
+constexpr std::array<const char *, 4> NameArray<Detail::EMMode>::value;
+
+
+struct EMMode{typedef Detail::EMMode type;};
+struct TE : public EMMode{
+  static constexpr type value = Detail::EMMode::TE;
+  static const std::size_t dim=2;
+  static const std::size_t numE=2;
+  static const std::size_t numH=1;
+  };
+struct TM : public EMMode{
+  static constexpr type value = Detail::EMMode::TM;
+  static const std::size_t dim=2;
                           static const std::size_t numE=1;
                           static const std::size_t numH=2;};
-struct TEM : public EMMode{static const std::size_t dim=1;
+struct TEM : public EMMode{
+  static constexpr type value = Detail::EMMode::TEM;
+  static const std::size_t dim=1;
                            static const std::size_t numE=1;
                            static const std::size_t numH=1;};
-struct ThreeD : public EMMode{static const std::size_t dim=3;
+struct ThreeD : public EMMode{
+  static constexpr type value = Detail::EMMode::ThreeD;
+  static const std::size_t dim=3;
                               static const std::size_t numE=3;
                               static const std::size_t numH=3;};
 
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 enum class FieldType : char{
@@ -312,6 +406,18 @@ template <> struct NameArray<FieldType>{
 };
 constexpr std::array<const char *, 3> NameArray<FieldType>::value;
 
+struct FieldTypeBase{typedef FieldType type;};
+  struct Electric : public FieldTypeBase{static constexpr type value = FieldType::Electric;};
+  struct Magnetic : public FieldTypeBase{static constexpr type value = FieldType::Magnetic;};
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 enum class Dir : char{
@@ -326,6 +432,18 @@ template <> struct NameArray<Dir>{
 constexpr std::array<const char *, 4> NameArray<Dir>::value;
 
 
+struct Direction{typedef Dir type;};
+  struct X : public Direction{static constexpr type value = Dir::X;};
+  struct Y : public Direction{static constexpr type value = Dir::Y;};
+  struct Z : public Direction{static constexpr type value = Dir::Z;};
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 
 template <Dir I, Dir J>
 struct MutuallyOrthogonal{static constexpr Dir value = Dir::NONE;};
@@ -338,6 +456,14 @@ template <> struct MutuallyOrthogonal<Dir::Z, Dir::Y>{static constexpr Dir value
 template <> struct MutuallyOrthogonal<Dir::Y, Dir::Z>{static constexpr Dir value = Dir::X;};
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 template <Dir Idx1, Dir Idx2, Dir... Idxs>
 struct CrossAll{
   static constexpr Dir value = MutuallyOrthogonal<Idx1, MutuallyOrthogonal<Idx2, Idxs...>::value>::value;
@@ -348,6 +474,11 @@ struct CrossAll<Idx1, Idx2>{
   static constexpr Dir value = MutuallyOrthogonal<Idx1, Idx2>::value;
 };
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 //************************************************************
 //************************************************************
 
@@ -401,6 +532,14 @@ struct ContainsDuplicates<T, T1>{
 // };
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 // Define components of the Levi-Civita tensor
 template <Dir I, Dir J, Dir K>
 struct LeviCivita{
@@ -444,6 +583,8 @@ template <> struct LeviCivita<Dir::Y, Dir::X, Dir::Z>{
 //************************************************************
 //************************************************************
 //************************************************************
+//************************************************************
+//************************************************************
 
 
 enum class Orientation : char{
@@ -455,6 +596,21 @@ template <> struct NameArray<Orientation>{
   static constexpr std::array<const char *, 3> value = {"MIN", "MAX", "NONE"};
 };
 constexpr std::array<const char *, 3> NameArray<Orientation>::value;
+
+
+
+struct Orient{typedef Orientation type;};
+  struct Min : public Orient{static constexpr type value = Orientation::MIN;};
+  struct Max : public Orient{static constexpr type value = Orientation::MAX;};
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 struct Field{typedef std::array<float, 3> offset_type;};
@@ -550,6 +706,15 @@ constexpr Field::offset_type By::off;
 constexpr Field::offset_type Bz::off;
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+
 template <FieldType ft, Dir d>
 struct FieldComponent{};
 
@@ -574,6 +739,13 @@ template <> struct FluxComponent<FieldType::Magnetic, Dir::Y>{typedef By type;};
 template <> struct FluxComponent<FieldType::Magnetic, Dir::Z>{typedef Bz type;};
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 
 // helper structs to easily access field data
 template <typename EMField>
@@ -595,6 +767,12 @@ struct IsMagnetic{
 };
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 

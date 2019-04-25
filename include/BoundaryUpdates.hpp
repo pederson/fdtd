@@ -37,6 +37,143 @@ template <> struct NameArray<Boundary>{
 constexpr std::array<const char *, 8> NameArray<Boundary>::value;
 
 
+//***************************************************************
+
+
+struct BoundaryOptions{
+private:
+	Boundary mConds[3][2];
+
+public:
+
+	BoundaryOptions() {
+		for (int i=0; i<3; i++){
+			for (int j=0; j<2; j++){
+				mConds[i][j] = Boundary::PEC;
+			} 
+		}
+	}
+
+	template <Dir d, Orientation o>
+	Boundary & get() {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+	template <Dir d, Orientation o>
+	const Boundary & get() const {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+
+	Boundary & get(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+	const Boundary & get(Dir d, Orientation o) const {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
+
+
+	Boundary & operator()(Dir d, Orientation o) {return mConds[static_cast<char>(d)][static_cast<char>(o)];};	
+	const Boundary & operator()(Dir d, Orientation o) const {return mConds[static_cast<char>(d)][static_cast<char>(o)];};	
+
+
+	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "<BoundaryConditions>" << std::endl;
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<X>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::X, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::X, Orientation::MAX>())] << "</MAX>" <<  std::endl;
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "</X>" << std::endl ;
+			
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<Y>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Y, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Y, Orientation::MAX>())] << "</MAX>" <<  std::endl;
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "</Y>" << std::endl ;
+
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<Z>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Z, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
+				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Z, Orientation::MAX>())] << " </MAX>" <<  std::endl;
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "</Z>" << std::endl ;
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "</BoundaryConditions>" << std::endl;
+
+		// for (auto i=0; i<NameArray<Boundary>::value.size(); i++){
+		// 	std::cout << "i: " << i <<  " -- " << NameArray<Boundary>::value[i] << std::endl;
+		// }
+
+		// for (int i=0; i<3; i++){
+		// 	for (int j=0; j<2; j++){
+		// 		std::cout << "Dir: " << i << " MinMax: " << j << " -- " << NameArray<Boundary>::value[static_cast<char>(mConds[i][j])] << std::endl;
+		// 	}
+		// }
+	}
+
+
+
+	#ifdef TINYXML2_INCLUDED
+	static BoundaryOptions readXML(std::string filename) {
+		BoundaryOptions bo;
+
+		tinyxml2::XMLDocument doc;
+		doc.LoadFile(filename.c_str());
+
+		tinyxml2::XMLNode * n = doc.FirstChild();
+		auto c = (n->FirstChild());
+				
+
+		while (c != nullptr){
+			std::stringstream ss;
+
+			if(!strcmp(c->Value(), "X")){
+				tinyxml2::XMLNode * mm = c->FirstChild();
+				while (mm != nullptr){
+					if (!strcmp(mm->Value(), "MIN")){
+						bo.get<Dir::X, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					else if (!strcmp(mm->Value(), "MAX")){
+						bo.get<Dir::X, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					mm = mm->NextSibling();
+				}
+			}
+			else if(!strcmp(c->Value(), "Y")){
+				tinyxml2::XMLNode * mm = c->FirstChild();
+				while (mm != nullptr){
+					if (!strcmp(mm->Value(), "MIN")){
+						bo.get<Dir::Y, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					else if (!strcmp(mm->Value(), "MAX")){
+						bo.get<Dir::Y, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					mm = mm->NextSibling();
+				}
+			}
+			else if(!strcmp(c->Value(), "Z")){
+				tinyxml2::XMLNode * mm = c->FirstChild();
+				while (mm != nullptr){
+					if (!strcmp(mm->Value(), "MIN")){
+						bo.get<Dir::Z, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					else if (!strcmp(mm->Value(), "MAX")){
+						bo.get<Dir::Z, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+					}
+					mm = mm->NextSibling();
+				}
+			}
+
+			c = (c->NextSibling());
+		}
+
+		return bo;
+	}
+	#endif
+};
+
+
+
 
 
 //***************************************************************
@@ -165,6 +302,7 @@ BoundaryUpdater<SourceIterator, DestIterator> make_boundary_updater(
 
 
 
+
 //***************************************************************
 
 // this is the runtime interface for boundary updates
@@ -285,7 +423,7 @@ public:
 template <Dir d>
 struct GetNeighborMin{
 	template <typename IteratorType>
-	static decltype(auto) get(IteratorType && it, const GetNeighborMin & g){return (*it).getNeighborMin(d);};
+	static decltype(auto) get(IteratorType && it, const GetNeighborMin & g){return (*it).getNeighborMin(static_cast<char>(d));};
 };
 
 
@@ -300,7 +438,7 @@ using MinIterator = typename MinIteratorDef<Iterator, d>::type;
 template <Dir d>
 struct GetNeighborMax{
 	template <typename IteratorType>
-	static decltype(auto) get(IteratorType && it, const GetNeighborMax & g){return (*it).getNeighborMax(d);};
+	static decltype(auto) get(IteratorType && it, const GetNeighborMax & g){return (*it).getNeighborMax(static_cast<char>(d));};
 };
 
 
@@ -367,6 +505,37 @@ BoundaryData make_pec_boundary(Iterator begit, Iterator endit){
 
 	return BoundaryData(Boundary::PEC, d, o, upE, upH);
 };
+
+
+// // helper function to create this structure without passing the data types explicitly
+// template <typename Mode, typename Iterator>
+// BoundaryData make_pec_boundary(Dir d, Orientation o, Iterator begit, Iterator endit){
+// 	assert(d != Dir::NONE, "Must have a valid direction!");
+// 	assert(o != Orientation::NONE, "Must have a valid orientation!");
+
+// 	// source iterator
+// 	typedef Iterator 			SourceIterator;
+
+// 	// dest iterator
+// 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
+
+// 	// single update
+// 	typedef SingleUpdate<Mode, Boundary::PEC, d, o> 	SingleUpdateType;
+// 	SingleUpdateType s;
+
+// 	// function type
+// 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
+
+// 	// whole-boundary update
+// 	auto upE = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
+// 									 DestIterator(begit), DestIterator(endit),
+// 									 static_cast<FunctorType>(s));
+// 	auto upH = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
+// 									 DestIterator(begit), DestIterator(endit),
+// 									 static_cast<FunctorType>(s));
+
+// 	return BoundaryData(Boundary::PEC, d, o, upE, upH);
+// };
 
 
 //************************************************************

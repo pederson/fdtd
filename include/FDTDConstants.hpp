@@ -30,6 +30,27 @@ template <typename T> struct NameArray{
 };
 
 
+// function to map strings to an enum which has a defined NameArray
+template <typename T>
+T MapNameTo(std::string name){
+  int idx;
+  bool found = false;
+  for (auto i=0; i!=NameArray<T>::value.size(); i++){
+    if (!strcmp(name.c_str(), NameArray<T>::value[i])){
+      idx = i;
+      found = true;
+    }
+  }
+
+  if (!found){
+    std::cerr << "ERROR: Could not MapNameTo, because name \"" << name << "\" was not found" << std::endl;
+    throw -1;
+  }
+
+  return static_cast<T>(idx);
+}
+
+
 namespace Detail
 {
     double constexpr sqrtNewtonRaphson(double x, double curr, double prev)
@@ -78,6 +99,149 @@ namespace Detail{
   template<typename TupleType, template<typename> class Fctor, typename... Args>
   void for_each_tuple_type(Args && ... args) {
     for_each_tuple_type_struct<TupleType, std::tuple_size<TupleType>::value-1, Fctor>::get(std::forward<Args>(args)...);
+  };
+
+
+
+
+  template <typename T, typename... Ts>
+  struct FirstType{
+    typedef T type;
+  };
+
+  template <typename T>
+  struct FirstType<T>{
+    typedef T type;
+  };
+
+
+  // this does the implementation
+  template<typename AggregateTuple, int I, template<typename...> class Fctor, typename TupleType1, typename... TupleTypes>
+  struct nested_for_each_tuple_type_struct {
+    template <typename... Args>
+    static void get(Args && ... args) {
+      // set the Ith type
+      typedef std::tuple_element_t<I, TupleType1>   Type1;
+      typedef std::tuple<Type1>                   SingletonTuple1;
+      typedef decltype(std::tuple_cat(std::declval<AggregateTuple>(),std::declval<SingletonTuple1>()))    NewAggregate;
+
+      // loop through inner loop
+      nested_for_each_tuple_type_struct<NewAggregate, 
+                                        std::tuple_size<typename FirstType<TupleTypes...>::type>::value-1, 
+                                        Fctor,
+                                        TupleTypes...>::get(std::forward<Args>(args)...);
+
+      // on to the next iterate
+      nested_for_each_tuple_type_struct<AggregateTuple, 
+                                        I - 1, 
+                                        Fctor, 
+                                        TupleType1, 
+                                        TupleTypes...>::get(std::forward<Args>(args)...);
+    }
+  };
+
+  // base case
+  template<typename AggregateTuple, template<typename...> class Fctor, typename TupleType1, typename... TupleTypes>
+  struct nested_for_each_tuple_type_struct<AggregateTuple, 0, Fctor, TupleType1, TupleTypes...> {
+    template <typename... Args>
+    static void get(Args && ... args) {
+      // set the Ith type
+      typedef std::tuple_element_t<0, TupleType1>   Type1;
+      typedef std::tuple<Type1>                   SingletonTuple1;
+      typedef decltype(std::tuple_cat(std::declval<AggregateTuple>(),std::declval<SingletonTuple1>()))    NewAggregate;
+
+      // loop through inner loop
+      nested_for_each_tuple_type_struct<NewAggregate, 
+                                        std::tuple_size<typename FirstType<TupleTypes...>::type>::value-1, 
+                                        Fctor,
+                                        TupleTypes...>::get(std::forward<Args>(args)...);
+    }
+  };
+
+  // this does the implementation
+  template<typename AggregateTuple, int I, template<typename...> class Fctor, typename TupleType>
+  struct nested_for_each_tuple_type_struct<AggregateTuple, I, Fctor, TupleType>{
+  private:
+    template <typename Tuple>
+    struct ApplyFunctor{
+    };
+
+    // specialize
+    template <typename... TupleArgs>
+    struct ApplyFunctor<std::tuple<TupleArgs...>>{
+      template <typename... Args>
+      static void get(Args && ... args){
+        Fctor<TupleArgs...>::get(std::forward<Args>(args)...);
+      }
+    };
+  public:
+    template <typename... Args>
+    static void get(Args && ... args) {
+
+      // set the Ith type
+      typedef std::tuple_element_t<I, TupleType>   Type1;
+      typedef std::tuple<Type1>                   SingletonTuple1;
+      typedef decltype(std::tuple_cat(std::declval<AggregateTuple>(),std::declval<SingletonTuple1>()))    NewAggregate;
+
+      //Call get() of Fctor
+      ApplyFunctor<NewAggregate>::get(std::forward<Args>(args)...);
+      
+      //Continue to next iteration
+      nested_for_each_tuple_type_struct<AggregateTuple, I - 1, Fctor, TupleType>::get(std::forward<Args>(args)...);
+    }
+  };
+
+
+  // this does the implementation
+  template<typename AggregateTuple, template<typename...> class Fctor, typename TupleType>
+  struct nested_for_each_tuple_type_struct<AggregateTuple, 0, Fctor, TupleType>{
+  private:
+    template <typename Tuple>
+    struct ApplyFunctor{
+    };
+
+    // specialize
+    template <typename... TupleArgs>
+    struct ApplyFunctor<std::tuple<TupleArgs...>>{
+      template <typename... Args>
+      static void get(Args && ... args){
+        Fctor<TupleArgs...>::get(std::forward<Args>(args)...);
+      }
+    };
+  public:
+    template <typename... Args>
+    static void get(Args && ... args) {
+
+      // set the Ith type
+      typedef std::tuple_element_t<0, TupleType>   Type1;
+      typedef std::tuple<Type1>                   SingletonTuple1;
+      typedef decltype(std::tuple_cat(std::declval<AggregateTuple>(),std::declval<SingletonTuple1>()))    NewAggregate;
+
+      //Call get() of Fctor
+      ApplyFunctor<NewAggregate>::get(std::forward<Args>(args)...);
+    }
+  };
+
+
+
+  // template<typename AggregateTuple, typename TupleType, template<typename> class Fctor>
+  // struct nested_for_each_tuple_type_struct<TupleType, 0, Fctor> {
+  //   template <typename... Args>
+  //   static void get(Args && ... args) {
+  //     // //Call get() of Fctor
+  //     Fctor<std::tuple_element_t<0,TupleType>>::get(std::forward<Args>(args)...);
+  //   }
+  // };
+
+
+  // Fctor is a templated class with a single template parameter. 
+  // it is expected to contain a static function get() that accepts the same 
+  // number of arguments as are passed into this function
+  //
+  // Fctor<T>::get(Args...) is called for each type T in the tuple 
+  template<template<typename...> class Fctor, typename TupleType1, typename... TupleTypes, typename... Args>
+  void nested_for_each_tuple_type(Args && ... args) {
+    nested_for_each_tuple_type_struct<std::tuple<>, std::tuple_size<TupleType1>::value-1, Fctor, TupleType1, TupleTypes...>::get(std::forward<Args>(args)...);
   };
 
   
@@ -188,22 +352,54 @@ struct CrossAll<Idx1, Idx2>{
 //************************************************************
 
 
+// recursively check that each type is distinct from all of its following types
+template <typename T, typename T1, typename... TypeList>
+struct IsListed{
+  static constexpr bool value = std::is_same<T, T1>::value || IsListed<T, TypeList...>::value;
+};
 
-// template <Dir... Idxs>
-// struct DirectionsAreDistinct{
-//   static constexpr bool value = (CrossAll<Idxs...>::value == Dir::NONE);
-// };
+template <typename T, typename T1>
+struct IsListed<T, T1>{
+  static constexpr bool value = std::is_same<T, T1>::value;
+};
 
-// template <Dir Idx1, Dir Idx2>
-// struct DirectionsAreDistinct<Idx1, Idx2>{
-//   static constexpr bool value = (MutuallyOrthogonal<Idx1, Idx2>::value != Dir::NONE);
-// };
 
-// generalized Levi-Civita
+
+// recursively check that each direction is distinct from all of its following directions
+template <Dir T, Dir T1, Dir... TypeList>
+struct DirIsListed{
+  static constexpr bool value = T==T1 || DirIsListed<T, TypeList...>::value;
+};
+
+template <Dir T, Dir T1>
+struct DirIsListed<T, T1>{
+  static constexpr bool value = T==T1;
+};
+
+
+
+// recursively check that each direction is distinct from all of its following directions
+template <Dir T, Dir T1, Dir... TypeList>
+struct ContainsDuplicates{
+  static constexpr bool value = DirIsListed<T,T1,TypeList...>::value || ContainsDuplicates<T1, TypeList...>::value;
+};
+
+template <Dir T, Dir T1>
+struct ContainsDuplicates<T, T1>{
+  static constexpr bool value = DirIsListed<T,T1>::value;
+};
+
+
+// // generalized Levi-Civita
 // template <Dir... Idx>
-// struct LeviCivita{
-//   static constexpr int value = 
+// struct GeneralizedLeviCivita{
+// private:
+
+// public:
+//  // check that each direction passed in is distinct... if not then value = 0
+//   static constexpr int value = (ContainsDuplicates<Idx...>::value ? 0 : 1);
 // };
+
 
 // Define components of the Levi-Civita tensor
 template <Dir I, Dir J, Dir K>

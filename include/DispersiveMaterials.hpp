@@ -775,6 +775,11 @@ namespace drude{
 
 		// }
 
+
+		//////////////// Matrix Exponential ////////////////////////
+
+		// implementation here
+
 	};
 
 	template <typename EMField>

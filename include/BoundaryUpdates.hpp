@@ -26,7 +26,7 @@ enum class Boundary : char {
 	NONE
 };
 template <> struct NameArray<Boundary>{
-  static constexpr std::array<const char *, 8> value = {"Periodic", 		// translational symmetry
+static constexpr std::array<const char *, 8> value = {"Periodic", 		// translational symmetry
 													   "BlochPeriodic", 	// translational symmetry
 													   "PEC",				// reflection symmetry
 													   "PMC",				// reflection symmetry
@@ -99,16 +99,6 @@ public:
 			os << "</Z>" << std::endl ;
 		for (auto i=0; i<ntabs; i++) os << "\t" ;
 		os << "</BoundaryConditions>" << std::endl;
-
-		// for (auto i=0; i<NameArray<Boundary>::value.size(); i++){
-		// 	std::cout << "i: " << i <<  " -- " << NameArray<Boundary>::value[i] << std::endl;
-		// }
-
-		// for (int i=0; i<3; i++){
-		// 	for (int j=0; j<2; j++){
-		// 		std::cout << "Dir: " << i << " MinMax: " << j << " -- " << NameArray<Boundary>::value[static_cast<char>(mConds[i][j])] << std::endl;
-		// 	}
-		// }
 	}
 
 

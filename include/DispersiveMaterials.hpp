@@ -7,6 +7,47 @@
 namespace fdtd{
 
 
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************		
+
+
+// restrict the set of possible
+// constant coefficient dispersions
+enum class Dispersion : char {
+	Vacuum,
+	Constant,
+	Conductive,
+	Drude,
+	Lorentz,
+	MagnetizedDrude,
+	MultiCoefficient,
+	Anisotropic
+};
+template <> struct NameArray<Dispersion>{
+static constexpr std::array<const char *, 8> value = {"Vacuum", 		// translational symmetry
+												   "Constant", 	// translational symmetry
+												   "Conductive",				// reflection symmetry
+												   "Drude",				// reflection symmetry
+												   "Lorentz",			// reflection symmetry
+												   "MagnetizedDrude",		// reflection symmetry
+												   "MultiCoefficient", 			
+												   "Anisotropic"};};
+constexpr std::array<const char *, 8> NameArray<Dispersion>::value;
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************		
+
+
 template <typename scalar_type = double>
 struct VacuumPolarization{
 	constexpr double permittivity_r() const {return 1.0;};
@@ -236,10 +277,88 @@ struct Stored{
 //************************************************************
 
 
+// this is a generalized version of the single-component material update
+template <typename UpdateStruct, bool implicit, typename EMField>
+struct DispersiveAtomicUpdate{
+	static constexpr Dir d 				= FieldDir<EMField>::value; 
+	static constexpr FieldType ft 		= EMField::field_type;
+	typedef typename FluxComponent<ft, d>::type 		DType;
+	typedef typename FieldComponent<ft, d>::type 		EType;
+	typedef typename CurrentComponent<ft, d>::type 		JType;
+	typedef typename PolarizationComponent<ft, d>::type PType;
+
+	template <typename T, typename ... Args, bool I = implicit>
+	static std::enable_if_t<implicit, void> 
+	get(T && f, Args... args){
+		UpdateStruct::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										  args...); 
+	}
+
+	template <typename T, typename ... Args, bool I = implicit>
+	static std::enable_if_t<!implicit, void> 
+	get(T && f, Args... args){
+		UpdateStruct::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
+										  args...); 
+	}
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+// This is very generalized and is designed to delegate 
+// the data storage and get(...) functionality to the template params
+// this way, the data storage policy can handle any read/write of that
+// data if necessary
+template <class 		Mode, 
+		  FieldType 	ftype,
+		  bool 			forward,
+		  class 		StoragePolicy,
+		  class 		GetterPolicy>
+struct DispersiveUpdate : public StoragePolicy, public GetterPolicy
+{
+private:
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+public:
+	DispersiveUpdate() {};
+
+	// any extra constructor arguments are passed to the StoragePolicy constructor
+	template <typename... Args>
+	DispersiveUpdate(Args... args) : StoragePolicy(args...) {};
+
+	DispersiveUpdate(const DispersiveUpdate & d) : StoragePolicy(d) {};
+
+	// the get(...) function is defined by the GetterPolicy
+	// using GetterPolicy
+
+	// pass just a cell and use the stored time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f){
+		GetterPolicy::get(f, *static_cast<StoragePolicy*>(this));
+	};
+
+	// allows the user to pass in a variable time-step
+	template <class YeeCell>
+	void operator()(YeeCell && f, double delta_t){
+		GetterPolicy::get(f, *static_cast<StoragePolicy*>(this), delta_t);
+	};
+
+};
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
 namespace constant{
 	struct ConstantUpdate{
-
-
 		template <typename T>
 		static void explicit_update(T& D, T& E, T& P, T& J,
 								   double eps_rel,
@@ -258,96 +377,65 @@ namespace constant{
 			E = D/(eps_rel*eps_0);
 
 		}
-
 	};
 
-	template <typename EMField>
-	struct ConstantImplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0){
-			ConstantUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-											  eps_r, eps_0); 
+
+	// call the constant get(...) function for a generic StoragePolicy
+	template <typename Mode, FieldType ftype, bool forward, typename StoragePolicy>
+	struct ConstantCall {
+	private:
+		template <typename EMField>
+		using UpdateType = DispersiveAtomicUpdate<constant::ConstantUpdate, !forward, EMField>;
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::get(sp, f, args...), val);
 		}
 	};
 
-	template <typename EMField>
-	struct ConstantExplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0){
-			ConstantUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-											  eps_r, eps_0); 
+
+	// class that defines a constant-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConstantCall function
+	struct ConstantStorage{
+	private:
+		double mK;
+	public:
+		ConstantStorage(double K) : mK(K) {};
+
+		double & K() {return mK;};
+		const double & K() const {return mK;};
+
+		template <typename ... Args>
+		static decltype(auto) get(ConstantStorage & c, Args... args){return c.K();}
+	
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<Constant>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</Constant>" << std::endl;
 		}
 	};
+
+	
+
 }// end namespace constant
 
 
 
 
-
-
-// This is very generalized and pretty good, but it would be convenient to have a type
-// that could store the material parameters within the struct itself
-template <class Mode, 
-		  FieldType ftype,
-		  bool forward = false,
-		  class StaticValue = StoredValue>
-struct ConstantUpdate : public StaticValue
-{
-	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-
-	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
-
-	ConstantUpdate() {};
-	ConstantUpdate(double K) : StaticValue(K) {};
-
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							constant::ConstantImplicit>(f, StaticValue::get(f, *this), val);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							constant::ConstantExplicit>(f, StaticValue::get(f, *this), val);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f){
-		get(f);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		get(f);
-	};
-
-};
+template <typename Mode, FieldType ftype, bool forward = false>
+using ConstantUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   constant::ConstantStorage, 
+										   constant::ConstantCall<Mode, ftype, forward, constant::ConstantStorage>>;
 
 
 
@@ -394,98 +482,76 @@ namespace conductive{
 
 	};
 
-	template <typename EMField>
-	struct ConductiveImplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0, double wp, double dt){
-			ConductiveUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-											  eps_r, eps_0, wp, dt); 
+	// call the conductive get(...) function for a generic StoragePolicy
+	template <typename Mode, FieldType ftype, bool forward, typename StoragePolicy>
+	struct ConductiveCall {
+	private:
+		template <typename EMField>
+		using UpdateType = DispersiveAtomicUpdate<conductive::ConductiveUpdate, !forward, EMField>;
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...), 
+										   StoragePolicy::getDt(sp, f, args...));
+		}
+
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...), 
+										   dt);
 		}
 	};
 
-	template <typename EMField>
-	struct ConductiveExplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0, double wp, double dt){
-			ConductiveUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-											  eps_r, eps_0, wp, dt); 
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct ConductiveStorage{
+		FDTD_DECLARE_MEMBER(double, K);
+		FDTD_DECLARE_MEMBER(double, Freq);
+		FDTD_DECLARE_MEMBER(double, dt);
+	public:
+		ConductiveStorage(double K, double Freq, double delt) : mK(K), mFreq(Freq), mdt(delt) {};
+		ConductiveStorage(double K, double Freq) : mK(K), mFreq(Freq) {};
+		template <typename ... Args>
+		static decltype(auto) getK(ConductiveStorage & c, Args... args){return c.K();}
+		template <typename ... Args>
+		static decltype(auto) getFreq(ConductiveStorage & c, Args... args){return c.Freq();}
+		template <typename ... Args>
+		static decltype(auto) getDt(ConductiveStorage & c, Args... args){return c.dt();}
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<Conductive>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Freq>" <<  mFreq << "</Freq>" << std::endl;
+
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</Conductive>" << std::endl;
 		}
 	};
 }// end namespace conductive
 
 
-
-
-
-
-// This is very generalized and pretty good, but it would be convenient to have a type
-// that could store the material parameters within the struct itself
-template <class Mode,
-		  FieldType ftype = FieldType::Electric,
-		  bool forward = false, 
-		  class StaticValue = StoredValue,
-		  class ConductiveFreq = Stored<void>>
-struct ConductiveUpdate : public StaticValue, public ConductiveFreq
-{
-	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-
-	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
-	double dt;
-
-	ConductiveUpdate(double deltat): dt(deltat) {};
-	ConductiveUpdate(double K, double w0, double deltat): StaticValue(K), ConductiveFreq(w0), dt(deltat) {};
-
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							conductive::ConductiveImplicit>(f, StaticValue::get(f, *this), val, ConductiveFreq::get(f, *this), dt);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							conductive::ConductiveExplicit>(f, StaticValue::get(f, *this), val, ConductiveFreq::get(f, *this), dt);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f){
-		get(f);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		get(f);
-	};
-
-};
-
-
+template <typename Mode, FieldType ftype, bool forward = false>
+using ConductiveUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   conductive::ConductiveStorage, 
+										   conductive::ConductiveCall<Mode, ftype, forward, conductive::ConductiveStorage>>;
 
 
 
@@ -539,99 +605,93 @@ namespace lorentz{
 
 	};
 
-	template <typename EMField>
-	struct LorentzImplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
+	// call the lorentz get(...) function for a generic StoragePolicy
+	template <typename Mode, FieldType ftype, bool forward, typename StoragePolicy>
+	struct LorentzCall {
+	private:
+		template <typename EMField>
+		using UpdateType = DispersiveAtomicUpdate<lorentz::LorentzUpdate, !forward, EMField>;
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...),
+										   StoragePolicy::getDelta(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...),
+										   StoragePolicy::getGamma(sp, f, args...), 
+										   StoragePolicy::getDt(sp, f, args...));
+		}
 
-		template <typename T>
-		static void get(T && f, double eps_r, double delta, double eps_0, double wp, double gamma, double dt){
-			LorentzUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										 eps_r, delta, eps_0, wp, gamma, dt); 
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...),
+										   StoragePolicy::getDelta(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...),
+										   StoragePolicy::getGamma(sp, f, args...), 
+										   dt);
 		}
 	};
 
-	template <typename EMField>
-	struct LorentzExplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double delta, double eps_0, double wp, double gamma, double dt){
-			LorentzUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										 eps_r, delta, eps_0, wp, gamma, dt); 
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct LorentzStorage{
+		FDTD_DECLARE_MEMBER(double, K);
+		FDTD_DECLARE_MEMBER(double, Delta);
+		FDTD_DECLARE_MEMBER(double, Freq);
+		FDTD_DECLARE_MEMBER(double, Gamma);
+		FDTD_DECLARE_MEMBER(double, dt);
+	public:
+		LorentzStorage(double K, double Delta, double Freq, double Gamma, double dt) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
+		LorentzStorage(double K, double Delta, double Freq, double Gamma) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma) {};
+		template <typename ... Args>
+		static decltype(auto) getK(LorentzStorage & c, Args... args){return c.K();}
+		template <typename ... Args>
+		static decltype(auto) getDelta(LorentzStorage & c, Args... args){return c.Delta();}
+		template <typename ... Args>
+		static decltype(auto) getFreq(LorentzStorage & c, Args... args){return c.Freq();}
+		template <typename ... Args>
+		static decltype(auto) getGamma(LorentzStorage & c, Args... args){return c.Gamma();}
+		template <typename ... Args>
+		static decltype(auto) getDt(LorentzStorage & c, Args... args){return c.dt();}
+	
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<Lorentz>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Delta>" <<  mDelta << "</Delta>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Freq>" <<  mFreq << "</Freq>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Gamma>" <<  mGamma << "</Gamma>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</Lorentz>" << std::endl;
 		}
 	};
+
 }// end namespace lorentz
 
 
+template <typename Mode, FieldType ftype, bool forward = false>
+using LorentzUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   lorentz::LorentzStorage, 
+										   lorentz::LorentzCall<Mode, ftype, forward, lorentz::LorentzStorage>>;
 
 
-
-
-// This is very generalized and pretty good, but it would be convenient to have a type
-// that could store the material parameters within the struct itself
-template <class Mode,
-		  FieldType ftype = FieldType::Electric,
-		  bool forward = false, 
-		  class StaticValue = StoredValue,
-		  class Delta 		= Stored<void>,
-		  class LorentzFreq = Stored<int>,
-		  class Gamma 		= Stored<double>
-		  >
-struct LorentzUpdate : public StaticValue, public Delta, public LorentzFreq, public Gamma
-{
-	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-
-	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
-	double dt;
-
-	LorentzUpdate(double deltat): dt(deltat) {};
-	LorentzUpdate(double K, double del, double w0, double gamma, double deltat): StaticValue(K), Delta(del), LorentzFreq(w0), Gamma(gamma), dt(deltat) {};
-
-
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							lorentz::LorentzImplicit>(f, StaticValue::get(f, *this), Delta::get(f, *this), val, LorentzFreq::get(f, *this), Gamma::get(f, *this), dt);
-	};
-
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							lorentz::LorentzExplicit>(f, StaticValue::get(f, *this), Delta::get(f, *this), val, LorentzFreq::get(f, *this), Gamma::get(f, *this), dt);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f){
-		get(f);
-	};
-
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		get(f);
-	};
-
-};
 
 
 
@@ -644,6 +704,9 @@ struct LorentzUpdate : public StaticValue, public Delta, public LorentzFreq, pub
 
 
 namespace drude{
+	static constexpr double m_e = 9.11e-31;
+	static constexpr double q_e = 1.6e-19;
+
 	struct DrudeUpdate{
 
 	//////////////// implicit Euler (1st order) ////////////////////////
@@ -782,95 +845,166 @@ namespace drude{
 
 	};
 
-	template <typename EMField>
-	struct DrudeImplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0, double wp, double gamma, double dt){
-			DrudeUpdate::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										 eps_r, eps_0, wp, gamma, dt); 
+	// call the drude get(...) function for a generic StoragePolicy
+	template <typename Mode, FieldType ftype, bool forward, typename StoragePolicy>
+	struct DrudeCall {
+	private:
+		template <typename EMField>
+		using UpdateType = DispersiveAtomicUpdate<drude::DrudeUpdate, !forward, EMField>;
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...),
+										   StoragePolicy::getGamma(sp, f, args...), 
+										   StoragePolicy::getDt(sp, f, args...));
+		}
+
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
+										   StoragePolicy::getFreq(sp, f, args...),
+										   StoragePolicy::getGamma(sp, f, args...), 
+										   dt);
 		}
 	};
 
-	template <typename EMField>
-	struct DrudeExplicit{
-		static constexpr Dir d = FieldDir<EMField>::value; 
-		static constexpr FieldType ft = EMField::field_type;
-		typedef typename FluxComponent<ft, d>::type 		DType;
-		typedef typename FieldComponent<ft, d>::type 	EType;
-		typedef typename CurrentComponent<ft, d>::type 	JType;
-		typedef typename PolarizationComponent<ft, d>::type 	PType;
 
-		template <typename T>
-		static void get(T && f, double eps_r, double eps_0, double wp, double gamma, double dt){
-			DrudeUpdate::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										 eps_r, eps_0, wp, gamma, dt); 
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct DrudeStorage{
+		FDTD_DECLARE_MEMBER(double, K);
+		FDTD_DECLARE_MEMBER(double, Freq);
+		FDTD_DECLARE_MEMBER(double, Gamma);
+		FDTD_DECLARE_MEMBER(double, dt);
+	public:
+		DrudeStorage(double K, double Freq, double Gamma, double dt) : mK(K), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
+		DrudeStorage(double K, double Freq, double Gamma) : mK(K), mFreq(Freq), mGamma(Gamma) {};
+		template <typename ... Args>
+		static decltype(auto) getK(DrudeStorage & c, Args... args){return c.K();}
+		template <typename ... Args>
+		static decltype(auto) getFreq(DrudeStorage & c, Args... args){return c.Freq();}
+		template <typename ... Args>
+		static decltype(auto) getGamma(DrudeStorage & c, Args... args){return c.Gamma();}
+		template <typename ... Args>
+		static decltype(auto) getDt(DrudeStorage & c, Args... args){return c.dt();}
+	
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<Drude>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Freq>" <<  mFreq << "</Freq>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Gamma>" <<  mGamma << "</Gamma>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</Drude>" << std::endl;
 		}
 	};
+
+
+	// interface with the ConductiveCall function
+	struct FluidDrudeStorage{
+	private:
+		static constexpr double Kval = fdtd::sqrt(drude::q_e*drude::q_e/(drude::m_e*fdtd::eps0));
+		FDTD_DECLARE_MEMBER(double, dt);
+	public:
+		FluidDrudeStorage(double dt) : mdt(dt) {};
+		FluidDrudeStorage() {};
+		template <typename ... Args>
+		static constexpr decltype(auto) getK(FluidDrudeStorage & c, Args... args){return 1.0;}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getFreq(FluidDrudeStorage & c, CellType && f, Args... args){return Kval*std::sqrt(f.ne());}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getGamma(FluidDrudeStorage & c, CellType && f, Args... args){return f.nu_m();}
+		template <typename ... Args>
+		static decltype(auto) getDt(FluidDrudeStorage & c, Args... args){return c.dt();}
+	
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<FluidDrude>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</FluidDrude>" << std::endl;
+		}
+	};
+
 }// end namespace drude
 
 
-
-// This is very generalized and pretty good, but it would be convenient to have a type
-// that could store the material parameters within the struct itself
-template <class Mode,
-		  FieldType ftype = FieldType::Electric,
-		  bool forward = false, 
-		  class StaticValue = StoredValue,
-		  class DrudeFreq 	= Stored<void>,
-		  class Gamma 		= Stored<int>
-		  >
-struct DrudeUpdate : public StaticValue, public DrudeFreq, public Gamma
-{
-	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-
-	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
-	double dt;
-
-	DrudeUpdate(double deltat): dt(deltat) {};
-	DrudeUpdate(double K, double w0, double gamma, double deltat): StaticValue(K), DrudeFreq(w0), Gamma(gamma), dt(deltat) {};
+template <typename Mode, FieldType ftype, bool forward = false>
+using DrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   drude::DrudeStorage, 
+										   drude::DrudeCall<Mode, ftype, forward, drude::DrudeStorage>>;
 
 
-	// use SFINAE to enable this only when forward = false;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<!T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							drude::DrudeImplicit>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
-	};
+template <typename Mode, FieldType ftype, bool forward = false>
+using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   drude::FluidDrudeStorage, 
+										   drude::DrudeCall<Mode, ftype, forward, drude::FluidDrudeStorage>>;
 
-	// use SFINAE to enable this only when forward = true;
-	template <class YeeCell, bool T = forward>
-	typename std::enable_if<T, void>::type
-	get(YeeCell && f){
-		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							drude::DrudeExplicit>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
-	};
 
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f){
-		get(f);
-	};
 
-	// allows the user to pass in a variable time-step
-	template <class YeeCell>
-	void operator()(YeeCell && f, double delta_t){
-		dt = delta_t;
-		get(f);
-	};
+// // This is very generalized and pretty good, but it would be convenient to have a type
+// // that could store the material parameters within the struct itself
+// template <class Mode,
+// 		  FieldType ftype = FieldType::Electric,
+// 		  bool forward = false, 
+// 		  class StaticValue = StoredValue,
+// 		  class DrudeFreq 	= Stored<void>,
+// 		  class Gamma 		= Stored<int>
+// 		  >
+// struct DrudeUpdate : public StaticValue, public DrudeFreq, public Gamma
+// {
+// private:
+// 	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+// 	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+// 	double dt;
 
-};
+// 	template <typename EMField>
+// 	using UpdateType = DispersiveAtomicUpdate<drude::DrudeUpdate, !forward, EMField>;
+
+// public:
+// 	DrudeUpdate(double deltat): dt(deltat) {};
+// 	DrudeUpdate(double K, double w0, double gamma, double deltat): StaticValue(K), DrudeFreq(w0), Gamma(gamma), dt(deltat) {};
+
+// 	template <class YeeCell>
+// 	void get(YeeCell && f){
+// 		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+// 													   typename FieldComponents<Mode>::electric, 
+// 													   typename FieldComponents<Mode>::magnetic>, 
+// 							UpdateType>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
+// 	};
+
+// 	// allows the user to pass in a variable time-step
+// 	template <class YeeCell>
+// 	void operator()(YeeCell && f){
+// 		get(f);
+// 	};
+
+// 	// allows the user to pass in a variable time-step
+// 	template <class YeeCell>
+// 	void operator()(YeeCell && f, double delta_t){
+// 		dt = delta_t;
+// 		get(f);
+// 	};
+
+// };
 
 
 
@@ -880,12 +1014,6 @@ struct DrudeUpdate : public StaticValue, public DrudeFreq, public Gamma
 //************************************************************
 //************************************************************
 //************************************************************
-
-namespace drude{
-	static constexpr double m_e = 9.11e-31;
-	static constexpr double q_e = 1.6e-19;
-} // end namespace drude
-
 
 
 

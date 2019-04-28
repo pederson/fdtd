@@ -4,39 +4,9 @@
 #include "FDTDConstants.hpp"
 #include "DefaultInterfaces.hpp"
 
+#include <sstream>
+
 namespace fdtd{
-
-
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************
-//************************************************************		
-
-
-// restrict the set of possible
-// constant coefficient dispersions
-enum class Dispersion : char {
-	Vacuum,
-	Constant,
-	Conductive,
-	Drude,
-	Lorentz,
-	MagnetizedDrude,
-	MultiCoefficient,
-	Anisotropic
-};
-template <> struct NameArray<Dispersion>{
-static constexpr std::array<const char *, 8> value = {"Vacuum", 		// translational symmetry
-												   "Constant", 	// translational symmetry
-												   "Conductive",				// reflection symmetry
-												   "Drude",				// reflection symmetry
-												   "Lorentz",			// reflection symmetry
-												   "MagnetizedDrude",		// reflection symmetry
-												   "MultiCoefficient", 			
-												   "Anisotropic"};};
-constexpr std::array<const char *, 8> NameArray<Dispersion>::value;
 
 
 
@@ -332,6 +302,9 @@ public:
 	DispersiveUpdate(Args... args) : StoragePolicy(args...) {};
 
 	DispersiveUpdate(const DispersiveUpdate & d) : StoragePolicy(d) {};
+	DispersiveUpdate(const DispersiveUpdate && d) : StoragePolicy(d) {};
+	DispersiveUpdate(const StoragePolicy & d) : StoragePolicy(d) {};
+	DispersiveUpdate(const StoragePolicy && d) : StoragePolicy(d) {};
 
 	// the get(...) function is defined by the GetterPolicy
 	// using GetterPolicy
@@ -407,6 +380,9 @@ namespace constant{
 	private:
 		double mK;
 	public:
+		// static constexpr Dispersion value = Dispersion::Constant;
+		static constexpr const char * name = "Constant";
+		ConstantStorage() {};
 		ConstantStorage(double K) : mK(K) {};
 
 		double & K() {return mK;};
@@ -423,9 +399,81 @@ namespace constant{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
 			os << "</Constant>" << std::endl;
 		}
-	};
 
+		#ifdef TINYXML2_INCLUDED
+
+		static ConstantStorage readXML(tinyxml2::XMLNode * n){
+			ConstantStorage cs;
+			auto c = (n->FirstChild());
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static ConstantStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
+	};	
+
+
+
+	// class that defines a constant-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConstantCall function
+	struct VacuumStorage{
+	private:
+		static constexpr double mK = 1.0;
+	public:
+		// static constexpr Dispersion value = Dispersion::Constant;
+		static constexpr const char * name = "Vacuum";
+		VacuumStorage() {};
+
+		const double & K() const {return mK;};
+
+		template <typename ... Args>
+		static decltype(auto) get(VacuumStorage & c, Args... args){return c.K();}
 	
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<Vacuum></Vacuum>" << std::endl;
+		}
+
+		#ifdef TINYXML2_INCLUDED
+
+		static VacuumStorage readXML(tinyxml2::XMLNode * n){
+			VacuumStorage cs;
+			auto c = (n->FirstChild());
+
+			return cs;
+		}
+
+		static VacuumStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
+	};
 
 }// end namespace constant
 
@@ -437,6 +485,10 @@ using ConstantUpdate = DispersiveUpdate<Mode, ftype, forward,
 										   constant::ConstantStorage, 
 										   constant::ConstantCall<Mode, ftype, forward, constant::ConstantStorage>>;
 
+template <typename Mode, FieldType ftype, bool forward = false>
+using VacuumUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   constant::VacuumStorage, 
+										   constant::ConstantCall<Mode, ftype, forward, constant::VacuumStorage>>;
 
 
 
@@ -523,6 +575,10 @@ namespace conductive{
 		FDTD_DECLARE_MEMBER(double, Freq);
 		FDTD_DECLARE_MEMBER(double, dt);
 	public:
+		// static constexpr Dispersion value = Dispersion::Conductive;
+		static constexpr const char * name = "Conductive";
+
+		ConductiveStorage(){};
 		ConductiveStorage(double K, double Freq, double delt) : mK(K), mFreq(Freq), mdt(delt) {};
 		ConductiveStorage(double K, double Freq) : mK(K), mFreq(Freq) {};
 		template <typename ... Args>
@@ -544,6 +600,42 @@ namespace conductive{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
 			os << "</Conductive>" << std::endl;
 		}
+
+		#ifdef TINYXML2_INCLUDED
+
+		static ConductiveStorage readXML(tinyxml2::XMLNode * n){
+			ConductiveStorage cs;
+			auto c = (n->FirstChild());
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+				}
+				if(!strcmp(c->Value(), "Freq")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Freq();
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static ConductiveStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
 	};
 }// end namespace conductive
 
@@ -651,6 +743,9 @@ namespace lorentz{
 		FDTD_DECLARE_MEMBER(double, Gamma);
 		FDTD_DECLARE_MEMBER(double, dt);
 	public:
+		static constexpr const char * name = "Lorentz";
+
+		LorentzStorage(){};
 		LorentzStorage(double K, double Delta, double Freq, double Gamma, double dt) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
 		LorentzStorage(double K, double Delta, double Freq, double Gamma) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma) {};
 		template <typename ... Args>
@@ -681,6 +776,63 @@ namespace lorentz{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
 			os << "</Lorentz>" << std::endl;
 		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static LorentzStorage readXML(tinyxml2::XMLNode * n){
+			LorentzStorage cs;
+			auto c = (n->FirstChild());
+
+			std::cout << "Reading Lorentz: " << c->Value() << std::endl;
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+
+					std::cout << mm->Value() << std::endl;
+				}
+				if(!strcmp(c->Value(), "Delta")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Delta();
+
+					std::cout << mm->Value() << std::endl;
+				}
+				if(!strcmp(c->Value(), "Freq")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Freq();
+
+					std::cout << mm->Value() << std::endl;
+				}
+				if(!strcmp(c->Value(), "Gamma")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Gamma();
+
+					std::cout << mm->Value() << std::endl;
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static LorentzStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
 	};
 
 }// end namespace lorentz
@@ -889,6 +1041,9 @@ namespace drude{
 		FDTD_DECLARE_MEMBER(double, Gamma);
 		FDTD_DECLARE_MEMBER(double, dt);
 	public:
+		static constexpr const char * name = "Drude";
+
+		DrudeStorage(){};
 		DrudeStorage(double K, double Freq, double Gamma, double dt) : mK(K), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
 		DrudeStorage(double K, double Freq, double Gamma) : mK(K), mFreq(Freq), mGamma(Gamma) {};
 		template <typename ... Args>
@@ -915,6 +1070,48 @@ namespace drude{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
 			os << "</Drude>" << std::endl;
 		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static DrudeStorage readXML(tinyxml2::XMLNode * n){
+			DrudeStorage cs;
+			auto c = (n->FirstChild());
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+				}
+				if(!strcmp(c->Value(), "Freq")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Freq();
+				}
+				if(!strcmp(c->Value(), "Gamma")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Gamma();
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static DrudeStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
 	};
 
 
@@ -924,6 +1121,8 @@ namespace drude{
 		static constexpr double Kval = fdtd::sqrt(drude::q_e*drude::q_e/(drude::m_e*fdtd::eps0));
 		FDTD_DECLARE_MEMBER(double, dt);
 	public:
+		static constexpr const char * name = "FluidDrude";
+
 		FluidDrudeStorage(double dt) : mdt(dt) {};
 		FluidDrudeStorage() {};
 		template <typename ... Args>
@@ -942,6 +1141,24 @@ namespace drude{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
 			os << "</FluidDrude>" << std::endl;
 		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static FluidDrudeStorage readXML(tinyxml2::XMLNode * n){
+			FluidDrudeStorage cs;
+			return cs;
+		}
+
+		static FluidDrudeStorage readXML(std::string filename) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n);
+		}
+
+		#endif
 	};
 
 }// end namespace drude
@@ -957,55 +1174,6 @@ template <typename Mode, FieldType ftype, bool forward = false>
 using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
 										   drude::FluidDrudeStorage, 
 										   drude::DrudeCall<Mode, ftype, forward, drude::FluidDrudeStorage>>;
-
-
-
-// // This is very generalized and pretty good, but it would be convenient to have a type
-// // that could store the material parameters within the struct itself
-// template <class Mode,
-// 		  FieldType ftype = FieldType::Electric,
-// 		  bool forward = false, 
-// 		  class StaticValue = StoredValue,
-// 		  class DrudeFreq 	= Stored<void>,
-// 		  class Gamma 		= Stored<int>
-// 		  >
-// struct DrudeUpdate : public StaticValue, public DrudeFreq, public Gamma
-// {
-// private:
-// 	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-// 	static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
-// 	double dt;
-
-// 	template <typename EMField>
-// 	using UpdateType = DispersiveAtomicUpdate<drude::DrudeUpdate, !forward, EMField>;
-
-// public:
-// 	DrudeUpdate(double deltat): dt(deltat) {};
-// 	DrudeUpdate(double K, double w0, double gamma, double deltat): StaticValue(K), DrudeFreq(w0), Gamma(gamma), dt(deltat) {};
-
-// 	template <class YeeCell>
-// 	void get(YeeCell && f){
-// 		Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
-// 													   typename FieldComponents<Mode>::electric, 
-// 													   typename FieldComponents<Mode>::magnetic>, 
-// 							UpdateType>(f, StaticValue::get(f, *this), val, DrudeFreq::get(f, *this), Gamma::get(f, *this), dt);
-// 	};
-
-// 	// allows the user to pass in a variable time-step
-// 	template <class YeeCell>
-// 	void operator()(YeeCell && f){
-// 		get(f);
-// 	};
-
-// 	// allows the user to pass in a variable time-step
-// 	template <class YeeCell>
-// 	void operator()(YeeCell && f, double delta_t){
-// 		dt = delta_t;
-// 		get(f);
-// 	};
-
-// };
-
 
 
 //************************************************************
@@ -1269,6 +1437,156 @@ struct MagnetizedDrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, Mag
 	};
 
 };
+
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************		
+
+
+namespace Detail{
+	// restrict the set of possible
+	// constant coefficient dispersions
+	enum class Dispersion : char {
+		Vacuum,
+		Constant,
+		Conductive,
+		Drude,
+		FluidDrude,
+		Lorentz,
+		MagnetizedDrude,
+		MultiCoefficient,
+		Anisotropic
+	};
+}
+template <> struct NameArray<Detail::Dispersion>{
+static constexpr std::array<const char *, 9> value = {"Vacuum",
+												   "Constant",
+												   "Conductive",
+												   "Drude",
+												   "FluidDrude",
+												   "Lorentz",
+												   "MagnetizedDrude",
+												   "MultiCoefficient",
+												   "Anisotropic"};};
+constexpr std::array<const char *, 9> NameArray<Detail::Dispersion>::value;
+
+
+struct Dispersion{typedef Detail::Dispersion type;};
+struct Vacuum : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Vacuum;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = VacuumUpdate<Mode, ft, fwd>;
+};
+struct Constant : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Constant;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = ConstantUpdate<Mode, ft, fwd>;
+};
+struct Conductive : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Conductive;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = ConductiveUpdate<Mode, ft, fwd>;
+};
+struct Drude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Drude;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = DrudeUpdate<Mode, ft, fwd>;
+};
+struct FluidDrude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::FluidDrude;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = FluidDrudeUpdate<Mode, ft, fwd>;
+};
+struct Lorentz : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Lorentz;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = LorentzUpdate<Mode, ft, fwd>;
+};
+struct MagnetizedDrude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::MagnetizedDrude;
+	// typedef MagnetizedDrudeUpdate type;
+};
+struct Multicoefficient : public Dispersion{
+	static constexpr type value = Detail::Dispersion::MultiCoefficient;
+	// typedef MulticoefficientUpdate type;
+};
+struct Anisotropic : public Dispersion{
+	static constexpr type value = Detail::Dispersion::Anisotropic;
+	// typedef AnisotropicUpdate type;
+};
+
+
+typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz> 	DispersionTuple;
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************		
+
+
+
+
+#ifdef TINYXML2_INCLUDED
+
+	template <typename T, typename Mode, FieldType ft, bool forward>
+	struct BuildDispersionXML{
+		typedef typename T::template update_type<Mode, ft, forward> 	UpType;
+		static UpType get(tinyxml2::XMLNode * n) {
+			return UpType(UpType::readXML(n));
+		}
+	};
+
+	// general struct to parse XML options here
+	template <typename ... Ts>
+	struct ParseXMLOptions{
+	private:
+		template <typename T>
+		struct atomic_parse{
+			static decltype(auto) get(tinyxml2::XMLNode * n){
+				if(!strcmp(n->Value(), T::name)){
+					return T::readXML(n->FirstChild());
+				}
+			}
+		};
+	public:
+		static decltype(auto) get(tinyxml2::XMLNode * n){
+			nested_for_each_tuple_type<atomic_parse, std::tuple<Ts...>>(n);
+		}
+		static decltype(auto) get(std::string filename){
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return get(n);
+		}
+	};
+
+
+
+	template <typename Mode, FieldType ft, bool forward=false>
+	using ParseXMLMaterials = ParseXMLOptions<VacuumUpdate<Mode, ft, forward>,
+											  ConstantUpdate<Mode, ft, forward>,
+											  ConductiveUpdate<Mode, ft, forward>,
+											  DrudeUpdate<Mode, ft, forward>,
+											  FluidDrudeUpdate<Mode, ft, forward>,
+											  LorentzUpdate<Mode, ft, forward>>;
+
+
+	// template <typename Mode, FieldType ft, bool forward=false>
+	// using ParseXMLMaterials = ParseXMLOptions<ConstantUpdate<Mode, ft, forward>,
+	// 										  ConductiveUpdate<Mode, ft, forward>>;
+
+#endif
+
+
+
 
 
 }// end namespace fdtd

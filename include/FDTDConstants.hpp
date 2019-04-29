@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <iostream>
+#include <functional>
 
 namespace fdtd{
 
@@ -29,6 +30,63 @@ namespace fdtd{
     const type & name() const {return m ## name;};  \
     type &     name()     {return m ## name;};
 
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
+namespace Detail{
+//***********************
+  template<typename... Ts>
+  struct has_method_helper {};
+
+
+//***********************
+  // an assignable vector requires the non-const begin() and end()
+  // iterator accessors
+  template<typename T, typename _ = void>
+  struct has_method_print_summary : std::false_type {};
+
+  template<typename T>
+  struct has_method_print_summary<
+          T,
+          std::conditional_t<
+              false,
+              has_method_helper<
+                  decltype(std::declval<T>().print_summary(std::cout, 0))
+                  >,
+              void
+              >
+          > : public std::true_type {};
+} // end namespace Detail
+
+
+
+
+
+// wraps around the print_summary() functionality so that it can
+// be stored for heterogeneous types
+template <typename T>
+struct PrintSummaryWrapper{
+private:
+  T mT;
+public:
+  typedef std::function<void(std::ostream &, unsigned int)> type;
+
+  PrintSummaryWrapper(const T & t) : mT(t) {
+    static_assert(Detail::has_method_print_summary<T>::value, "Type must have print_summary(ostream, unsigned int) method");
+  };
+  PrintSummaryWrapper(const PrintSummaryWrapper & p) : mT(p.mT) {
+    static_assert(Detail::has_method_print_summary<T>::value, "Type must have print_summary(ostream, unsigned int) method");
+  };
+
+  template <typename StreamType>
+  void operator()(StreamType & os, unsigned int ntabs=0){mT.print_summary(os, ntabs);};
+};
 
 //************************************************************
 //************************************************************

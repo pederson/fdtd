@@ -105,7 +105,7 @@ public:
 
 template <typename Mode, typename scalar_type = double>
 struct EmptyPML{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
+	static_assert(std::is_base_of<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
 
 	// integrators
 	template <FieldType ft, Dir I, Dir J>

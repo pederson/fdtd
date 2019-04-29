@@ -402,7 +402,7 @@ namespace constant{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static ConstantStorage readXML(tinyxml2::XMLNode * n){
+		static ConstantStorage readXML(tinyxml2::XMLNode * n, double dt){
 			ConstantStorage cs;
 			auto c = (n->FirstChild());
 
@@ -421,12 +421,12 @@ namespace constant{
 			return cs;
 		}
 
-		static ConstantStorage readXML(std::string filename) {
+		static ConstantStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -457,19 +457,19 @@ namespace constant{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static VacuumStorage readXML(tinyxml2::XMLNode * n){
+		static VacuumStorage readXML(tinyxml2::XMLNode * n, double dt){
 			VacuumStorage cs;
 			auto c = (n->FirstChild());
 
 			return cs;
 		}
 
-		static VacuumStorage readXML(std::string filename) {
+		static VacuumStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -603,8 +603,9 @@ namespace conductive{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static ConductiveStorage readXML(tinyxml2::XMLNode * n){
+		static ConductiveStorage readXML(tinyxml2::XMLNode * n, double dt){
 			ConductiveStorage cs;
+			cs.dt() = dt;
 			auto c = (n->FirstChild());
 
 			while (c != nullptr){
@@ -627,12 +628,12 @@ namespace conductive{
 			return cs;
 		}
 
-		static ConductiveStorage readXML(std::string filename) {
+		static ConductiveStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -682,17 +683,22 @@ namespace lorentz{
 								   double gamma,
 								   double dt){
 
-			double b = 2.0*gamma*dt;
-			double c = dt*lorentz_freq*lorentz_freq*(1.0+delta/eps_rel);
+			double b = 1.0+gamma*dt;
+			double bm = 1.0-gamma*dt;
+			// double b = 2.0*gamma*dt;
+			// double c = dt*lorentz_freq*lorentz_freq*(1.0+delta/eps_rel);
+			double w = lorentz_freq*dt;
 
 			// first update P to the level of D
-			P += 1.0/(b+dt*c)*(b*P + dt*J);
-
-			// finally update J a half step past D
-			J += 1.0/(b+dt*c)*(-c*P + J);
+			P += dt*J;
 
 			// then update E to the level of D
 			E = (D - P)/(eps_rel*eps_0);
+
+			// finally update J a half step past D
+			J = bm/b*J + eps_0*E*lorentz_freq*w/b - lorentz_freq*w/b*P;
+
+			
 		}
 
 	};
@@ -780,8 +786,9 @@ namespace lorentz{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static LorentzStorage readXML(tinyxml2::XMLNode * n){
+		static LorentzStorage readXML(tinyxml2::XMLNode * n, double dt){
 			LorentzStorage cs;
+			cs.dt() = dt;
 			auto c = (n->FirstChild());
 
 			std::cout << "Reading Lorentz: " << c->Value() << std::endl;
@@ -824,12 +831,12 @@ namespace lorentz{
 			return cs;
 		}
 
-		static LorentzStorage readXML(std::string filename) {
+		static LorentzStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -1074,8 +1081,9 @@ namespace drude{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static DrudeStorage readXML(tinyxml2::XMLNode * n){
+		static DrudeStorage readXML(tinyxml2::XMLNode * n, double dt){
 			DrudeStorage cs;
+			cs.dt() = dt;
 			auto c = (n->FirstChild());
 
 			while (c != nullptr){
@@ -1103,12 +1111,12 @@ namespace drude{
 			return cs;
 		}
 
-		static DrudeStorage readXML(std::string filename) {
+		static DrudeStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -1145,17 +1153,17 @@ namespace drude{
 
 		#ifdef TINYXML2_INCLUDED
 
-		static FluidDrudeStorage readXML(tinyxml2::XMLNode * n){
-			FluidDrudeStorage cs;
+		static FluidDrudeStorage readXML(tinyxml2::XMLNode * n, double dt){
+			FluidDrudeStorage cs(dt);
 			return cs;
 		}
 
-		static FluidDrudeStorage readXML(std::string filename) {
+		static FluidDrudeStorage readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML(n);
+			return readXML(n, dt);
 		}
 
 		#endif
@@ -1538,45 +1546,45 @@ typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz> 	Di
 	template <typename T, typename Mode, FieldType ft, bool forward>
 	struct BuildDispersionXML{
 		typedef typename T::template update_type<Mode, ft, forward> 	UpType;
-		static UpType get(tinyxml2::XMLNode * n) {
-			return UpType(UpType::readXML(n));
+		static UpType get(tinyxml2::XMLNode * n, double dt) {
+			return UpType(UpType::readXML(n, dt));
 		}
 	};
 
-	// general struct to parse XML options here
-	template <typename ... Ts>
-	struct ParseXMLOptions{
-	private:
-		template <typename T>
-		struct atomic_parse{
-			static decltype(auto) get(tinyxml2::XMLNode * n){
-				if(!strcmp(n->Value(), T::name)){
-					return T::readXML(n->FirstChild());
-				}
-			}
-		};
-	public:
-		static decltype(auto) get(tinyxml2::XMLNode * n){
-			nested_for_each_tuple_type<atomic_parse, std::tuple<Ts...>>(n);
-		}
-		static decltype(auto) get(std::string filename){
-			tinyxml2::XMLDocument doc;
-			doc.LoadFile(filename.c_str());
+	// // general struct to parse XML options here
+	// template <typename ... Ts>
+	// struct ParseXMLOptions{
+	// private:
+	// 	template <typename T>
+	// 	struct atomic_parse{
+	// 		static decltype(auto) get(tinyxml2::XMLNode * n){
+	// 			if(!strcmp(n->Value(), T::name)){
+	// 				return T::readXML(n->FirstChild());
+	// 			}
+	// 		}
+	// 	};
+	// public:
+	// 	static decltype(auto) get(tinyxml2::XMLNode * n){
+	// 		nested_for_each_tuple_type<atomic_parse, std::tuple<Ts...>>(n);
+	// 	}
+	// 	static decltype(auto) get(std::string filename){
+	// 		tinyxml2::XMLDocument doc;
+	// 		doc.LoadFile(filename.c_str());
 
-			tinyxml2::XMLNode * n = doc.FirstChild();
-			return get(n);
-		}
-	};
+	// 		tinyxml2::XMLNode * n = doc.FirstChild();
+	// 		return get(n);
+	// 	}
+	// };
 
 
 
-	template <typename Mode, FieldType ft, bool forward=false>
-	using ParseXMLMaterials = ParseXMLOptions<VacuumUpdate<Mode, ft, forward>,
-											  ConstantUpdate<Mode, ft, forward>,
-											  ConductiveUpdate<Mode, ft, forward>,
-											  DrudeUpdate<Mode, ft, forward>,
-											  FluidDrudeUpdate<Mode, ft, forward>,
-											  LorentzUpdate<Mode, ft, forward>>;
+	// template <typename Mode, FieldType ft, bool forward=false>
+	// using ParseXMLMaterials = ParseXMLOptions<VacuumUpdate<Mode, ft, forward>,
+	// 										  ConstantUpdate<Mode, ft, forward>,
+	// 										  ConductiveUpdate<Mode, ft, forward>,
+	// 										  DrudeUpdate<Mode, ft, forward>,
+	// 										  FluidDrudeUpdate<Mode, ft, forward>,
+	// 										  LorentzUpdate<Mode, ft, forward>>;
 
 
 	// template <typename Mode, FieldType ft, bool forward=false>

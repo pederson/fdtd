@@ -11,20 +11,14 @@
 namespace fdtd{
 
 
-// wraps around the print_summary() functionality so that it can
-// be stored for heterogeneous types
-template <typename T>
-struct PrintSummaryWrapper{
-private:
-	T mT;
-public:
-	PrintSummaryWrapper(const T & t) : mT(t) {};
-	PrintSummaryWrapper(const PrintSummaryWrapper & p) : mT(p.mT) {};
 
-	template <typename StreamType>
-	void operator()(StreamType & os, unsigned int ntabs=0){mT.print_summary(os, ntabs);};
-};
-
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+	
 // template <typename Derived>
 // struct AddPrinter : public Derived{
 // public:
@@ -106,17 +100,17 @@ private:
 			typedef std::function<void(std::add_rvalue_reference_t<CellType>)> ftype;
 			typedef std::function<void(std::ostream &, unsigned int)> ptype;
 			
-			static void get(Detail::Dispersion de, Detail::Dispersion dm, tinyxml2::XMLNode * e, tinyxml2::XMLNode * m, MaterialPair & mp){
+			static void get(double dt, Detail::Dispersion de, Detail::Dispersion dm, tinyxml2::XMLNode * e, tinyxml2::XMLNode * m, MaterialPair & mp){
 				if (de == E::value && dm == M::value){
 					std::cout << "MaterialPair builder" << std::endl;
 					// auto mp = make_material_pair(BuildDispersionXML<E>::get(e), BuildDispersionXML<M>::get(m));
 					std::cout << NameArray<typename E::type>::value[static_cast<int>(de)] << " ----- " << NameArray<typename M::type>::value[static_cast<int>(dm)] << std::endl;
 
-					typedef decltype(BuildDispersionXML<E, Mode, FieldType::Electric, forward>::get(e)) EType;
-					typedef decltype(BuildDispersionXML<M, Mode, FieldType::Magnetic, forward>::get(m)) MType;
+					typedef decltype(BuildDispersionXML<E, Mode, FieldType::Electric, forward>::get(e, dt)) EType;
+					typedef decltype(BuildDispersionXML<M, Mode, FieldType::Magnetic, forward>::get(m, dt)) MType;
 					
-					EType eval = BuildDispersionXML<E, Mode, FieldType::Electric, forward>::get(e);
-					MType mval = BuildDispersionXML<M, Mode, FieldType::Magnetic, forward>::get(m);
+					EType eval = BuildDispersionXML<E, Mode, FieldType::Electric, forward>::get(e, dt);
+					MType mval = BuildDispersionXML<M, Mode, FieldType::Magnetic, forward>::get(m, dt);
 
 					// eval.print_summary();
 					// mval.print_summary();
@@ -138,7 +132,7 @@ private:
 public:
 
 	template <typename Mode, bool forward = false>
-	static MaterialPair readXML(tinyxml2::XMLNode * n){
+	static MaterialPair readXML(tinyxml2::XMLNode * n, double dt){
 		typedef XMLReader<Mode, forward> ReaderType;
 
 		// MaterialPair mp;
@@ -165,7 +159,7 @@ public:
 
 		// std::cout << "XML MATERIAL PAIR: " << estring << ", " << mstring << std::endl;
 		MaterialPair mp;
-		fdtd::nested_for_each_tuple_type<ReaderType::template atomic_build, DispersionTuple, DispersionTuple>(MapNameTo<Detail::Dispersion>(estring), 
+		fdtd::nested_for_each_tuple_type<ReaderType::template atomic_build, DispersionTuple, DispersionTuple>(dt, MapNameTo<Detail::Dispersion>(estring), 
 																						 MapNameTo<Detail::Dispersion>(mstring),
 																						 enode, mnode, mp);
 		// mp.print_summary();
@@ -173,12 +167,12 @@ public:
 	}
 
 	template <typename Mode, bool forward = false>
-	static MaterialPair readXML(std::string filename) {
+	static MaterialPair readXML(std::string filename, double dt) {
 		tinyxml2::XMLDocument doc;
 		doc.LoadFile(filename.c_str());
 
 		tinyxml2::XMLNode * n = doc.FirstChild();
-		return readXML<Mode, forward>(n);
+		return readXML<Mode, forward>(n, dt);
 	}
 
 #endif
@@ -199,7 +193,12 @@ MaterialPair<CellType> make_material_pair(Electric && e, Magnetic && m){
 
 
 
-
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
 
 
 template <typename Identifier, typename CellType>
@@ -239,7 +238,7 @@ struct MaterialMap : public std::map<Identifier, MaterialPair<CellType>>
 	public:
 
 		template <typename Mode, bool forward = false>
-		static MaterialMap readXML(tinyxml2::XMLNode * n){
+		static MaterialMap readXML(tinyxml2::XMLNode * n, double dt){
 			MaterialMap mp;
 
 			std::string id;
@@ -263,7 +262,7 @@ struct MaterialMap : public std::map<Identifier, MaterialPair<CellType>>
 
 						mm = (mm->NextSibling());
 					}
-					mp.insert(std::make_pair(id, MaterialPair<CellType>::template readXML<Mode, forward>(mnode)));
+					mp.insert(std::make_pair(id, MaterialPair<CellType>::template readXML<Mode, forward>(mnode, dt)));
 				}
 
 				c = (c->NextSibling());
@@ -273,12 +272,12 @@ struct MaterialMap : public std::map<Identifier, MaterialPair<CellType>>
 		}
 
 		template <typename Mode, bool forward = false>
-		static MaterialMap readXML(std::string filename) {
+		static MaterialMap readXML(std::string filename, double dt) {
 			tinyxml2::XMLDocument doc;
 			doc.LoadFile(filename.c_str());
 
 			tinyxml2::XMLNode * n = doc.FirstChild();
-			return readXML<Mode, forward>(n);
+			return readXML<Mode, forward>(n, dt);
 		}
 
 	#endif

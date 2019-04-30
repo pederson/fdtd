@@ -5,6 +5,7 @@
 #include "DefaultInterfaces.hpp"
 
 #include <sstream>
+#include <assert.h>
 
 namespace fdtd{
 
@@ -259,16 +260,16 @@ struct DispersiveAtomicUpdate{
 
 	template <typename T, typename ... Args, bool I = implicit>
 	static std::enable_if_t<implicit, void> 
-	get(T && f, Args... args){
-		UpdateStruct::implicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										  args...); 
+	get(T && f, Args && ... args){
+		UpdateStruct::implicit_update(GetField<DType>::get(std::forward<T>(f)), GetField<EType>::get(std::forward<T>(f)), GetField<PType>::get(std::forward<T>(f)), GetField<JType>::get(std::forward<T>(f)),
+										  std::forward<Args>(args)...); 
 	}
 
 	template <typename T, typename ... Args, bool I = implicit>
 	static std::enable_if_t<!implicit, void> 
-	get(T && f, Args... args){
-		UpdateStruct::explicit_update(GetField<DType>::get(f), GetField<EType>::get(f), GetField<PType>::get(f), GetField<JType>::get(f),
-										  args...); 
+	get(T && f, Args && ... args){
+		UpdateStruct::explicit_update(GetField<DType>::get(std::forward<T>(f)), GetField<EType>::get(std::forward<T>(f)), GetField<PType>::get(std::forward<T>(f)), GetField<JType>::get(std::forward<T>(f)),
+										  std::forward<Args>(args)...); 
 	}
 };
 
@@ -312,13 +313,13 @@ public:
 	// pass just a cell and use the stored time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f){
-		GetterPolicy::get(f, *static_cast<StoragePolicy*>(this));
+		GetterPolicy::get(std::forward<YeeCell>(f), *static_cast<StoragePolicy*>(this));
 	};
 
 	// allows the user to pass in a variable time-step
 	template <class YeeCell>
 	void operator()(YeeCell && f, double delta_t){
-		GetterPolicy::get(f, *static_cast<StoragePolicy*>(this), delta_t);
+		GetterPolicy::get(std::forward<YeeCell>(f), *static_cast<StoragePolicy*>(this), delta_t);
 	};
 
 };
@@ -333,8 +334,8 @@ public:
 namespace constant{
 	struct ConstantUpdate{
 		template <typename T>
-		static void explicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		static void explicit_update(T&& D, T&& E, T&& P, T&& J,
+								   const double & eps_rel,
 								   double eps_0){
 			D = eps_rel*eps_0*E;
 		}
@@ -343,8 +344,8 @@ namespace constant{
 	//////////////// Verlet (2nd order) ////////////////////////
 
 		template <typename T>
-		static void implicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		static void implicit_update(T&& D, T&& E, T&& P, T&& J,
+								   const double & eps_rel,
 								   double eps_0){
 
 			E = D/(eps_rel*eps_0);
@@ -363,11 +364,10 @@ namespace constant{
 		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	public:
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
-			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
+			fdtd::nested_for_each_tuple_type<UpdateType, std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
-													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::get(sp, f, args...), val);
+													   typename FieldComponents<Mode>::magnetic>>(std::forward<YeeCell>(f), StoragePolicy::get(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val);
 		}
 	};
 
@@ -389,7 +389,7 @@ namespace constant{
 		const double & K() const {return mK;};
 
 		template <typename ... Args>
-		static decltype(auto) get(ConstantStorage & c, Args... args){return c.K();}
+		static const double & get(ConstantStorage & c, Args && ... args){return c.K();}
 	
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
@@ -448,7 +448,7 @@ namespace constant{
 		const double & K() const {return mK;};
 
 		template <typename ... Args>
-		static decltype(auto) get(VacuumStorage & c, Args... args){return c.K();}
+		static decltype(auto) get(VacuumStorage & c, Args && ... args){return c.K();}
 	
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
@@ -503,12 +503,12 @@ namespace conductive{
 	struct ConductiveUpdate{
 
 
-		template <typename T>
-		static void explicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		template <typename T, typename dtType>
+		static void explicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
 								   double eps_0, 
-								   double cond_freq, 
-								   double dt){
+								   const double & cond_freq, 
+								   dtType && dt){
 			P += dt*cond_freq*E;
 			D = eps_rel*eps_0*E + P;
 		}
@@ -516,12 +516,12 @@ namespace conductive{
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
-		template <typename T>
-		static void implicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		template <typename T, typename dtType>
+		static void implicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
 								   double eps_0, 
-								   double cond_freq, 
-								   double dt){
+								   const double & cond_freq, 
+								   dtType && dt){
 
 			double factor = dt*cond_freq/(eps_rel*eps_0);
 
@@ -544,23 +544,23 @@ namespace conductive{
 		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	public:
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...), 
-										   StoragePolicy::getDt(sp, f, args...));
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
 		}
 
 		// call with a specified time-step
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...), 
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
 										   dt);
 		}
 	};
@@ -582,11 +582,11 @@ namespace conductive{
 		ConductiveStorage(double K, double Freq, double delt) : mK(K), mFreq(Freq), mdt(delt) {};
 		ConductiveStorage(double K, double Freq) : mK(K), mFreq(Freq) {};
 		template <typename ... Args>
-		static decltype(auto) getK(ConductiveStorage & c, Args... args){return c.K();}
+		static decltype(auto) getK(ConductiveStorage & c, Args && ... args){return c.K();}
 		template <typename ... Args>
-		static decltype(auto) getFreq(ConductiveStorage & c, Args... args){return c.Freq();}
+		static decltype(auto) getFreq(ConductiveStorage & c, Args && ... args){return c.Freq();}
 		template <typename ... Args>
-		static decltype(auto) getDt(ConductiveStorage & c, Args... args){return c.dt();}
+		static decltype(auto) getDt(ConductiveStorage & c, Args && ... args){return c.dt();}
 
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
@@ -660,28 +660,28 @@ namespace lorentz{
 	struct LorentzUpdate{
 
 
-		template <typename T>
-		static void explicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
-								   double delta,
+		template <typename T, typename dtType>
+		static void explicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
+								   const double & delta,
 								   double eps_0, 
-								   double lorentz_freq, 
-								   double gamma,
-								   double dt){
+								   const double & lorentz_freq, 
+								   const double & gamma,
+								   dtType && dt){
 			static_assert(std::is_same<T,void>::value, "EXPLICIT UPDATE FOR LORENTZ MATERIAL IS INCOMPLETE!");
 		}
 
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
-		template <typename T>
-		static void implicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
-								   double delta,
-								   double eps_0, 
-								   double lorentz_freq, 
-								   double gamma,
-								   double dt){
+		template <typename T, typename dtType>
+		static void implicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
+								   const double & delta,
+								   const double & eps_0, 
+								   const double & lorentz_freq, 
+								   const double & gamma,
+								   dtType && dt){
 
 			double b = 1.0+gamma*dt;
 			double bm = 1.0-gamma*dt;
@@ -696,7 +696,7 @@ namespace lorentz{
 			E = (D - P)/(eps_rel*eps_0);
 
 			// finally update J a half step past D
-			J = bm/b*J + eps_0*E*lorentz_freq*w/b - lorentz_freq*w/b*P;
+			J = bm/b*J + lorentz_freq*w/b*eps_0*E - lorentz_freq*w/b*P;
 
 			
 		}
@@ -712,27 +712,27 @@ namespace lorentz{
 		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	public:
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...),
-										   StoragePolicy::getDelta(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...),
-										   StoragePolicy::getGamma(sp, f, args...), 
-										   StoragePolicy::getDt(sp, f, args...));
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getDelta(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
 		}
 
 		// call with a specified time-step
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...),
-										   StoragePolicy::getDelta(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...),
-										   StoragePolicy::getGamma(sp, f, args...), 
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getDelta(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
 										   dt);
 		}
 	};
@@ -755,15 +755,15 @@ namespace lorentz{
 		LorentzStorage(double K, double Delta, double Freq, double Gamma, double dt) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
 		LorentzStorage(double K, double Delta, double Freq, double Gamma) : mK(K), mDelta(Delta), mFreq(Freq), mGamma(Gamma) {};
 		template <typename ... Args>
-		static decltype(auto) getK(LorentzStorage & c, Args... args){return c.K();}
+		static decltype(auto) getK(LorentzStorage & c, Args && ... args){return c.K();}
 		template <typename ... Args>
-		static decltype(auto) getDelta(LorentzStorage & c, Args... args){return c.Delta();}
+		static decltype(auto) getDelta(LorentzStorage & c, Args && ... args){return c.Delta();}
 		template <typename ... Args>
-		static decltype(auto) getFreq(LorentzStorage & c, Args... args){return c.Freq();}
+		static decltype(auto) getFreq(LorentzStorage & c, Args && ... args){return c.Freq();}
 		template <typename ... Args>
-		static decltype(auto) getGamma(LorentzStorage & c, Args... args){return c.Gamma();}
+		static decltype(auto) getGamma(LorentzStorage & c, Args && ... args){return c.Gamma();}
 		template <typename ... Args>
-		static decltype(auto) getDt(LorentzStorage & c, Args... args){return c.dt();}
+		static decltype(auto) getDt(LorentzStorage & c, Args && ... args){return c.dt();}
 	
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
 			for (auto i=0; i<ntabs; i++) os << "\t" ;
@@ -870,13 +870,13 @@ namespace drude{
 
 	//////////////// implicit Euler (1st order) ////////////////////////
 		// // using implicit Euler (1st-order in time)
-		// template <typename T>
-		// static void implicit_update(T& D, T& E, T& P, T& J,
-		// 						   double eps_rel,
+		// template <typename T, typename dtType>
+		// static void implicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
 		// 						   double eps_0, 
-		// 						   double drude_freq, 
-		// 						   double gamma,
-		// 						   double dt){
+		// 						   const double & drude_freq, 
+		// 						   const double & gamma,
+		// 						   dtType && dt){
 		// 	double b = gamma*dt;
 		// 	double c = dt*drude_freq*drude_freq/eps_rel;
 
@@ -885,13 +885,13 @@ namespace drude{
 		// 	E = (D - P)/(eps_rel*eps_0);
 		// }
 
-		template <typename T>
-		static void explicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		template <typename T, typename dtType>
+		static void explicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
 								   double eps_0, 
-								   double drude_freq, 
-								   double gamma,
-								   double dt){
+								   const double & drude_freq, 
+								   const double & gamma,
+								   dtType && dt){
 			double b = gamma*dt;
 			double c = dt*drude_freq*drude_freq*eps_0;
 
@@ -904,13 +904,13 @@ namespace drude{
 	//////////////// Crank-Nicolson (2nd order) ////////////////////////
 
 		// // using Crank-Nicolson (2nd-order in time)
-		// template <typename T>
-		// static void implicit_update(T& D, T& E, T& P, T& J,
-		// 						   double eps_rel,
-		// 						   double eps_0, 
-		// 						   double drude_freq, 
-		// 						   double gamma,
-		// 						   double dt){
+		// template <typename T, typename dtType>
+		// static void implicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
+		// 						   const double &  eps_0, 
+		// 						   const double &  drude_freq, 
+		// 						   const double &  gamma,
+		// 						   dtType && dt){
 		// 	double b = gamma*dt*0.5;
 		// 	double c = 0.5*dt*drude_freq*drude_freq/eps_rel;
 		// 	double d = 0.5*dt*drude_freq*drude_freq*eps_0;
@@ -925,13 +925,13 @@ namespace drude{
 		// 	E = (D - P)/(eps_rel*eps_0);
 		// }
 
-		// template <typename T>
-		// static void explicit_update(T& D, T& E, T& P, T& J,
-		// 						   double eps_rel,
+		// template <typename T, typename dtType>
+		// static void explicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
 		// 						   double eps_0, 
-		// 						   double drude_freq, 
-		// 						   double gamma,
-		// 						   double dt){
+		// 						   const double & drude_freq, 
+		// 						   const double & gamma,
+		// 						   dtType && dt){
 		// 	double b = gamma*dt;
 		// 	double c = dt*drude_freq*drude_freq*eps_0;
 
@@ -943,13 +943,13 @@ namespace drude{
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
-		template <typename T>
-		static void implicit_update(T& D, T& E, T& P, T& J,
-								   double eps_rel,
+		template <typename T, typename dtType>
+		static void implicit_update(T && D, T && E, T && P, T && J,
+								   const double & eps_rel,
 								   double eps_0, 
-								   double drude_freq, 
-								   double gamma,
-								   double dt){
+								   const double & drude_freq, 
+								   const double & gamma,
+								   dtType && dt){
 			double b = gamma*dt*0.5;
 			double w = dt*drude_freq; // normalized plasma freq
 
@@ -967,13 +967,13 @@ namespace drude{
 
 	//////////////// Recursive Convolution (1st order) i.e. exponential time-stepping ////////////////////////
 
-		// template <typename T>
-		// static void implicit_update(T& D, T& E, T& P, T& J,
-		// 						   double eps_rel,
+		// template <typename T, typename dtType>
+		// static void implicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
 		// 						   double eps_0, 
-		// 						   double drude_freq, 
-		// 						   double gamma,
-		// 						   double dt){
+		// 						   const double & drude_freq, 
+		// 						   const double & gamma,
+		// 						   dtType && dt){
 			
 		// 	// P = I_1
 		// 	// J = I_2
@@ -1014,25 +1014,25 @@ namespace drude{
 		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
 	public:
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...),
-										   StoragePolicy::getGamma(sp, f, args...), 
-										   StoragePolicy::getDt(sp, f, args...));
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
 		}
 
 		// call with a specified time-step
 		template <typename YeeCell, typename... Args>
-		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args... args){
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
 			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
 													   typename FieldComponents<Mode>::electric, 
 													   typename FieldComponents<Mode>::magnetic>, 
-							UpdateType>(f, StoragePolicy::getK(sp, f, args...), val, 
-										   StoragePolicy::getFreq(sp, f, args...),
-										   StoragePolicy::getGamma(sp, f, args...), 
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
 										   dt);
 		}
 	};
@@ -1054,13 +1054,13 @@ namespace drude{
 		DrudeStorage(double K, double Freq, double Gamma, double dt) : mK(K), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
 		DrudeStorage(double K, double Freq, double Gamma) : mK(K), mFreq(Freq), mGamma(Gamma) {};
 		template <typename ... Args>
-		static decltype(auto) getK(DrudeStorage & c, Args... args){return c.K();}
+		static decltype(auto) getK(DrudeStorage & c, Args && ... args){return c.K();}
 		template <typename ... Args>
-		static decltype(auto) getFreq(DrudeStorage & c, Args... args){return c.Freq();}
+		static decltype(auto) getFreq(DrudeStorage & c, Args && ... args){return c.Freq();}
 		template <typename ... Args>
-		static decltype(auto) getGamma(DrudeStorage & c, Args... args){return c.Gamma();}
+		static decltype(auto) getGamma(DrudeStorage & c, Args && ... args){return c.Gamma();}
 		template <typename ... Args>
-		static decltype(auto) getDt(DrudeStorage & c, Args... args){return c.dt();}
+		static decltype(auto) getDt(DrudeStorage & c, Args && ... args){return c.dt();}
 	
 
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
@@ -1134,13 +1134,13 @@ namespace drude{
 		FluidDrudeStorage(double dt) : mdt(dt) {};
 		FluidDrudeStorage() {};
 		template <typename ... Args>
-		static constexpr decltype(auto) getK(FluidDrudeStorage & c, Args... args){return 1.0;}
+		static constexpr decltype(auto) getK(FluidDrudeStorage & c, Args && ... args){return 1.0;}
 		template <typename CellType, typename ... Args>
-		static decltype(auto) getFreq(FluidDrudeStorage & c, CellType && f, Args... args){return Kval*std::sqrt(f.ne());}
+		static decltype(auto) getFreq(FluidDrudeStorage & c, CellType && f, Args && ... args){return Kval*std::sqrt(f.ne());}
 		template <typename CellType, typename ... Args>
-		static decltype(auto) getGamma(FluidDrudeStorage & c, CellType && f, Args... args){return f.nu_m();}
+		static decltype(auto) getGamma(FluidDrudeStorage & c, CellType && f, Args && ... args){return f.nu_m();}
 		template <typename ... Args>
-		static decltype(auto) getDt(FluidDrudeStorage & c, Args... args){return c.dt();}
+		static decltype(auto) getDt(FluidDrudeStorage & c, Args && ... args){return c.dt();}
 	
 
 		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
@@ -1192,259 +1192,491 @@ using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward,
 //************************************************************
 
 
-
-// drude update with a magnetic field term included
-// The magnetic field could be self-consistent with the wave, or it could
-// be imposed externally. This behavior is controlled through the template
-// class 'MagneticField' which is required to have a static function ::get
-// which returns a struct with accessors .Bx(), .By(), and .Bz() 
-template <class Mode, 
-			class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			class MagneticField>
-struct MagnetizedDrudeUpdateParametrized{
-	static_assert(std::is_same<EMMode, Mode>::value, "YeeUpdate needs a valid Mode");
-};
-
-
-// specialization for 3D
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			class MagneticField>
-struct MagnetizedDrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, MagneticField>{
-	double dt;
+// // drude update with a magnetic field term included
+// // The magnetic field could be self-consistent with the wave, or it could
+// // be imposed externally. This behavior is controlled through the template
+// // class 'MagneticField' which is required to have a static function ::get
+// // which returns a struct with accessors .Bx(), .By(), and .Bz() 
 
 
 
-	MagnetizedDrudeUpdateParametrized<ThreeD, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
 
 
-		// all updates together (impicitly)
-		double wp = dt*DrudeFreq::get(f);
-		double vc = dt*Gamma::get(f);
-		double vx = dt*MagneticField::get(f).Bx()*drude::q_e/drude::m_e;
-		double vy = dt*MagneticField::get(f).By()*drude::q_e/drude::m_e;
-		double vz = dt*MagneticField::get(f).Bz()*drude::q_e/drude::m_e;
-		double oneplus = (1.0+vc+wp*wp);
-		double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+namespace magnetized_drude{
+	struct MagnetizedDrudeUpdate3D{
+		// template <typename T, typename dtType>
+		// static void explicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+		// 	double b = gamma*dt;
+		// 	double c = dt*drude_freq*drude_freq*eps_0;
 
-		// A matrix
-		// first col
-		double a11 = oneplus*oneplus + vx*vx;
-		double a21 = vz*oneplus+vx*vy;
-		double a31 = -vy*oneplus+vx*vz;
-		
-		// second col
-		double a12 = -vz*oneplus+vx*vy;
-		double a22 = oneplus*oneplus + vy*vy;
-		double a32 = vx*oneplus+vy*vz;
+		// 	P = (-dt*J + (1.0+b)*P)/(1.0+b);
+		// 	J = (J - c*E)/(1.0+b);
+		// 	D = eps_rel*eps_0*E + P;
+		// }
 
-		// third col
-		double a13 = vy*oneplus+vx*vz;
-		double a23 = -vx*oneplus+vy*vz;
-		double a33 = oneplus*oneplus + vz*vz;
+	//////////////// Verlet (2nd order) ////////////////////////
+
+	//////////////// Implicit Euler (1st order) ////////////////////////
+
+		template <typename T, typename dtType>
+		static void implicit_update(T && Dx, T && Dy, T && Dz,
+									T && Ex, T && Ey, T && Ez,
+									T && Px, T && Py, T && Pz,
+									T && Jx, T && Jy, T && Jz,
+									const double & Bx, const double & By, const double & Bz,
+								   const double & eps_rel,
+								   double eps_0, 
+								   const double & drude_freq, 
+								   const double & gamma,
+								   dtType && dt){
+
+			// all updates together (impicitly)
+			double wp = dt*drude_freq;
+			double vc = dt*gamma;
+			double vx = dt*Bx*drude::q_e/drude::m_e;
+			double vy = dt*By*drude::q_e/drude::m_e;
+			double vz = dt*Bz*drude::q_e/drude::m_e;
+			double oneplus = (1.0+vc+wp*wp);
+			double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+
+			// A matrix
+			// first col
+			double a11 = oneplus*oneplus + vx*vx;
+			double a21 = vz*oneplus+vx*vy;
+			double a31 = -vy*oneplus+vx*vz;
+			
+			// second col
+			double a12 = -vz*oneplus+vx*vy;
+			double a22 = oneplus*oneplus + vy*vy;
+			double a32 = vx*oneplus+vy*vz;
+
+			// third col
+			double a13 = vy*oneplus+vx*vz;
+			double a23 = -vx*oneplus+vy*vz;
+			double a33 = oneplus*oneplus + vz*vz;
 
 
-		auto Jxh = 1.0/denom*(a11*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a12*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a13*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-		auto Jyh = 1.0/denom*(a21*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a22*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a23*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-		auto Jzh = 1.0/denom*(a31*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a32*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a33*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
+			auto Jxh = 1.0/denom*(a11*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a12*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) + a13*(Jz-wp*wp/dt*Pz+wp*wp/dt*Dz));
+			auto Jyh = 1.0/denom*(a21*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a22*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) + a23*(Jz-wp*wp/dt*Pz+wp*wp/dt*Dz));
+			auto Jzh = 1.0/denom*(a31*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a32*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) + a33*(Jz-wp*wp/dt*Pz+wp*wp/dt*Dz));
 
-		auto Pxh = f.Px() + 1.0/denom*(a11*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a12*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) + a13*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
-		auto Pyh = f.Py() + 1.0/denom*(a21*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a22*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) + a23*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
-		auto Pzh = f.Pz() + 1.0/denom*(a31*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a32*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) + a33*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
+			auto Pxh = Px + 1.0/denom*(a11*(dt*Jx+wp*wp*Dx-wp*wp*Px) + a12*(dt*Jy+wp*wp*Dy-wp*wp*Py) + a13*(dt*Jz+wp*wp*Dz-wp*wp*Pz));
+			auto Pyh = Py + 1.0/denom*(a21*(dt*Jx+wp*wp*Dx-wp*wp*Px) + a22*(dt*Jy+wp*wp*Dy-wp*wp*Py) + a23*(dt*Jz+wp*wp*Dz-wp*wp*Pz));
+			auto Pzh = Pz + 1.0/denom*(a31*(dt*Jx+wp*wp*Dx-wp*wp*Px) + a32*(dt*Jy+wp*wp*Dy-wp*wp*Py) + a33*(dt*Jz+wp*wp*Dz-wp*wp*Pz));
 
-		f.Jx() = Jxh;
-		f.Jy() = Jyh;
-		f.Jz() = Jzh;
+			Jx = Jxh;
+			Jy = Jyh;
+			Jz = Jzh;
 
-		f.Px() = Pxh;
-		f.Py() = Pyh;
-		f.Pz() = Pzh;
+			Px = Pxh;
+			Py = Pyh;
+			Pz = Pzh;
 
-		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
-		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
-
+			Ex = (Dx - Px)/(eps0*eps_rel);
+			Ey = (Dy - Py)/(eps0*eps_rel);
+			Ez = (Dz - Pz)/(eps0*eps_rel);
+				
+		}
 	};
 
+
+
+	struct MagnetizedDrudeUpdateTE{
+		// template <typename T, typename dtType>
+		// static void explicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+		// 	double b = gamma*dt;
+		// 	double c = dt*drude_freq*drude_freq*eps_0;
+
+		// 	P = (-dt*J + (1.0+b)*P)/(1.0+b);
+		// 	J = (J - c*E)/(1.0+b);
+		// 	D = eps_rel*eps_0*E + P;
+		// }
+
+	//////////////// Verlet (2nd order) ////////////////////////
+
+		template <typename T, typename dtType>
+		static void implicit_update(T && Dx, T && Dy,
+									T && Ex, T && Ey,
+									T && Px, T && Py,
+									T && Jx, T && Jy,
+									const double & Bx, const double & By, const double & Bz,
+								   const double & eps_rel,
+								   double eps_0, 
+								   const double & drude_freq, 
+								   const double & gamma,
+								   dtType && dt){
+
+			// some constants
+			double wp = dt*drude_freq;
+			double vc = 0.5*dt*gamma;
+			double vx = 0.5*dt*Bx*drude::q_e/drude::m_e;
+			double vy = 0.5*dt*By*drude::q_e/drude::m_e;
+			double vz = 0.5*dt*Bz*drude::q_e/drude::m_e;
+			double oneplus = (1.0+vc);
+			double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+
+			// A matrix
+			// first col
+			double a11 = oneplus*oneplus + vx*vx;
+			double a21 = vz*oneplus+vx*vy;
+			double a31 = -vy*oneplus+vx*vz;
+			
+			// second col
+			double a12 = -vz*oneplus+vx*vy;
+			double a22 = oneplus*oneplus + vy*vy;
+			double a32 = vx*oneplus+vy*vz;
+
+			// third col
+			double a13 = vy*oneplus+vx*vz;
+			double a23 = -vx*oneplus+vy*vz;
+			double a33 = oneplus*oneplus + vz*vz;
+
+
+			// B matrix
+			// first col
+			double b11 = 1.0-vc;
+			double b21 = vz;
+			double b31 = -vy;
+			
+			// second col
+			double b12 = -vz;
+			double b22 = 1.0-vc;
+			double b32 = vx;
+
+			// third col
+			double b13 = vy;
+			double b23 = -vx;
+			double b33 = 1.0-vc;
+
+			// first update P
+			Px += dt*Jx;
+			Py += dt*Jy;
+
+			// now get E from D and P
+			Ex = (Dx - Px)/(eps0*eps_rel);
+			Ey = (Dy - Py)/(eps0*eps_rel);
+			// Ez = (Dz - Pz)/(eps0*eps_rel);
+
+
+			auto Jxh = 1.0/denom*(a11*(b11*Jx + b12*Jy) + a12*(b21*Jx + b22*Jy) + eps_0*wp*wp/dt*(a11*Ex + a12*Ey));
+			auto Jyh = 1.0/denom*(a21*(b11*Jx + b12*Jy) + a22*(b21*Jx + b22*Jy) + eps_0*wp*wp/dt*(a21*Ex + a22*Ey));
+
+			Jx = Jxh;
+			Jy = Jyh;
+			// Jz = Jzh;
+	
+		}
+
+	//////////////// Implicit Euler (1st order) ////////////////////////
+
+		// template <typename T>
+		// static void implicit_update(T && Dx, T && Dy,
+		// 							T && Ex, T && Ey,
+		// 							T && Px, T && Py,
+		// 							T && Jx, T && Jy,
+		// 							double Bx, double By, double Bz,
+		// 						   const double & eps_rel,
+		// 						   double eps_0, 
+		// 						   double drude_freq, 
+		// 						   double gamma,
+		// 						   double dt){
+
+		// 	// all updates together (impicitly)
+		// 	double wp = dt*drude_freq;
+		// 	double vc = dt*gamma;
+		// 	double vx = dt*Bx*drude::q_e/drude::m_e;
+		// 	double vy = dt*By*drude::q_e/drude::m_e;
+		// 	double vz = dt*Bz*drude::q_e/drude::m_e;
+		// 	double oneplus = (1.0+vc+wp*wp);
+		// 	double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+
+		// 	// A matrix
+		// 	// first col
+		// 	double a11 = oneplus*oneplus + vx*vx;
+		// 	double a21 = vz*oneplus+vx*vy;
+		// 	double a31 = -vy*oneplus+vx*vz;
+			
+		// 	// second col
+		// 	double a12 = -vz*oneplus+vx*vy;
+		// 	double a22 = oneplus*oneplus + vy*vy;
+		// 	double a32 = vx*oneplus+vy*vz;
+
+		// 	// third col
+		// 	double a13 = vy*oneplus+vx*vz;
+		// 	double a23 = -vx*oneplus+vy*vz;
+		// 	double a33 = oneplus*oneplus + vz*vz;
+
+
+
+
+		// 	auto Jxh = 1.0/denom*(a11*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a12*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) );
+		// 	auto Jyh = 1.0/denom*(a21*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a22*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) );
+		// 	// auto Jzh = 1.0/denom*(a31*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a32*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) + a33*(Jz-wp*wp/dt*Pz+wp*wp/dt*Dz));
+
+		// 	auto Pxh = Px + 1.0/denom*(a11*(dt*Jx+wp*wp*Dx-wp*wp*Px) + a12*(dt*Jy+wp*wp*Dy-wp*wp*Py) );
+		// 	auto Pyh = Py + 1.0/denom*(a21*(dt*Jx+wp*wp*Dx-wp*wp*Px) + a22*(dt*Jy+wp*wp*Dy-wp*wp*Py) );
+		// 	// auto Pzh = Pz + 1.0/denom*(a31*(dt*Jx+wp*wp/dt*Dx-wp*wp*Px) + a32*(dt*Jy+wp*wp/dt*Dy-wp*wp*Py) + a33*(dt*Jz+wp*wp/dt*Dz-wp*wp*Pz));
+
+
+		// 	Jx = Jxh;
+		// 	Jy = Jyh;
+		// 	// Jz = Jzh;
+
+		// 	Px = Pxh;
+		// 	Py = Pyh;
+		// 	// Pz = Pzh;
+
+		// 	Ex = (Dx - Px)/(eps0*eps_rel);
+		// 	Ey = (Dy - Py)/(eps0*eps_rel);
+		// 	// Ez = (Dz - Pz)/(eps0*eps_rel);
+				
+		// }
+	};
+
+
+
+	// call the drude get(...) function for a generic StoragePolicy
+	template <typename Mode, FieldType ftype, bool forward, typename StoragePolicy>
+	struct MagnetizedDrudeCall {
+	private:
+		template <typename EMField>
+		using UpdateType = DispersiveAtomicUpdate<drude::DrudeUpdate, !forward, EMField>;
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
+		}
+
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
+			Detail::for_each_tuple_type<std::conditional_t<ftype == FieldType::Electric, 
+													   typename FieldComponents<Mode>::electric, 
+													   typename FieldComponents<Mode>::magnetic>, 
+							UpdateType>(std::forward<YeeCell>(f), StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   dt);
+		}
+	};
+
+	template <FieldType ftype, bool forward, typename StoragePolicy>
+	struct MagnetizedDrudeCall<ThreeD, ftype, forward, StoragePolicy> {
+	private:
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
+			magnetized_drude::MagnetizedDrudeUpdate3D::implicit_update(f.Dx(), f.Dy(), f.Dz(),
+													  f.Ex(), f.Ey(), f.Ez(),
+													  f.Px(), f.Py(), f.Pz(),
+													  f.Jx(), f.Jy(), f.Jz(),
+													  StoragePolicy::getBx(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBy(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBz(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
+		}
+
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
+			magnetized_drude::MagnetizedDrudeUpdate3D::implicit_update(f.Dx(), f.Dy(), f.Dz(),
+													  f.Ex(), f.Ey(), f.Ez(),
+													  f.Px(), f.Py(), f.Pz(),
+													  f.Jx(), f.Jy(), f.Jz(),
+													  StoragePolicy::getBx(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBy(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBz(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   dt);
+		}
+	};
+
+
+	template <FieldType ftype, bool forward, typename StoragePolicy>
+	struct MagnetizedDrudeCall<TE, ftype, forward, StoragePolicy> {
+	private:
+		static constexpr double val = (ftype == FieldType::Electric ? fdtd::eps0 : fdtd::mu0);
+	public:
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, Args && ... args){
+			magnetized_drude::MagnetizedDrudeUpdateTE::implicit_update(f.Dx(), f.Dy(),
+													  f.Ex(), f.Ey(),
+													  f.Px(), f.Py(),
+													  f.Jx(), f.Jy(),
+													  StoragePolicy::getBx(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBy(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBz(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   StoragePolicy::getDt(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...));
+		}
+
+		// call with a specified time-step
+		template <typename YeeCell, typename... Args>
+		static void get(YeeCell && f, StoragePolicy & sp, double dt, Args && ... args){
+			magnetized_drude::MagnetizedDrudeUpdateTE::implicit_update(f.Dx(), f.Dy(),
+													  f.Ex(), f.Ey(),
+													  f.Px(), f.Py(),
+													  f.Jx(), f.Jy(),
+													  StoragePolicy::getBx(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBy(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getBz(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+													  StoragePolicy::getK(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), val, 
+										   StoragePolicy::getFreq(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...),
+										   StoragePolicy::getGamma(sp, std::forward<YeeCell>(f), std::forward<Args>(args)...), 
+										   dt);
+		}
+	};
+
+
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct MagnetizedDrudeStorage{
+		FDTD_DECLARE_MEMBER(double, Bx);
+		FDTD_DECLARE_MEMBER(double, By);
+		FDTD_DECLARE_MEMBER(double, Bz);
+		FDTD_DECLARE_MEMBER(double, K);
+		FDTD_DECLARE_MEMBER(double, Freq);
+		FDTD_DECLARE_MEMBER(double, Gamma);
+		FDTD_DECLARE_MEMBER(double, dt);
+	public:
+		static constexpr const char * name = "MagnetizedDrude";
+
+		MagnetizedDrudeStorage(){};
+		MagnetizedDrudeStorage(double Bx, double By, double Bz, double K, double Freq, double Gamma, double dt) : mBx(Bx), mBy(By), mBz(Bz), mK(K), mFreq(Freq), mGamma(Gamma), mdt(dt) {};
+		MagnetizedDrudeStorage(double Bx, double By, double Bz, double K, double Freq, double Gamma) : mBx(Bx), mBy(By), mBz(Bz), mK(K), mFreq(Freq), mGamma(Gamma) {};
+		template <typename ... Args>
+		static const double & getBx(MagnetizedDrudeStorage & c, Args && ... args){return c.Bx();}
+		template <typename ... Args>
+		static const double & getBy(MagnetizedDrudeStorage & c, Args && ... args){return c.By();}
+		template <typename ... Args>
+		static const double & getBz(MagnetizedDrudeStorage & c, Args && ... args){return c.Bz();}
+
+		template <typename ... Args>
+		static const double & getK(MagnetizedDrudeStorage & c, Args && ... args){return c.K();}
+		template <typename ... Args>
+		static const double & getFreq(MagnetizedDrudeStorage & c, Args && ... args){return c.Freq();}
+		template <typename ... Args>
+		static const double & getGamma(MagnetizedDrudeStorage & c, Args && ... args){return c.Gamma();}
+		template <typename ... Args>
+		static const double & getDt(MagnetizedDrudeStorage & c, Args && ... args){return c.dt();}
 	
 
-};
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<MagnetizedDrude>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<B>(" << mBx << ", " << mBy << ", " << mBz << ")</B>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Freq>" <<  mFreq << "</Freq>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Gamma>" <<  mGamma << "</Gamma>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</MagnetizedDrude>" << std::endl;
+		}
 
 
-// specialization for TM
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			class MagneticField>
-struct MagnetizedDrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, MagneticField>{
-	double dt;
+		#ifdef TINYXML2_INCLUDED
 
+		static MagnetizedDrudeStorage readXML(tinyxml2::XMLNode * n, double dt){
+			MagnetizedDrudeStorage cs;
+			cs.dt() = dt;
+			auto c = (n->FirstChild());
 
+			while (c != nullptr){
+				std::stringstream ss;
 
-	MagnetizedDrudeUpdateParametrized<TM, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
+				if(!strcmp(c->Value(), "B")){
+					// read
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					std::string B;
+					// now parse
+					std::getline(ss, B, '(');
+					std::getline(ss, B, ',');
+					std::stringstream(B) >> cs.Bx();
+					std::getline(ss, B, ',');
+					std::stringstream(B) >> cs.By();
+					std::getline(ss, B, ')');
+					std::stringstream(B) >> cs.Bz();
+				}
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+				}
+				if(!strcmp(c->Value(), "Freq")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Freq();
+				}
+				if(!strcmp(c->Value(), "Gamma")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Gamma();
+				}
 
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = Gamma::get(f)*dt;
-		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
+				c = (c->NextSibling());
+			}
 
+			return cs;
+		}
 
-		// all updates together (impicitly)
-		double wp = dt*DrudeFreq::get(f);
-		double vc = dt*Gamma::get(f);
-		double vx = dt*real(MagneticField::get(f).Bx())*drude::q_e/drude::m_e;
-		double vy = dt*real(MagneticField::get(f).By())*drude::q_e/drude::m_e;
-		double vz = dt*real(MagneticField::get(f).Bz())*drude::q_e/drude::m_e;
-		double oneplus = (1.0+vc+wp*wp);
-		double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+		static MagnetizedDrudeStorage readXML(std::string filename, double dt) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
 
-		// A matrix
-		// first col
-		double a11 = oneplus*oneplus + vx*vx;
-		double a21 = vz*oneplus+vx*vy;
-		double a31 = -vy*oneplus+vx*vz;
-		
-		// second col
-		double a12 = -vz*oneplus+vx*vy;
-		double a22 = oneplus*oneplus + vy*vy;
-		double a32 = vx*oneplus+vy*vz;
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n, dt);
+		}
 
-		// third col
-		double a13 = vy*oneplus+vx*vz;
-		double a23 = -vx*oneplus+vy*vz;
-		double a33 = oneplus*oneplus + vz*vz;
-
-
-		// auto Jxh = 1.0/denom*(a11*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a12*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a13*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-		// auto Jyh = 1.0/denom*(a21*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a22*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a23*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-		auto Jzh = 1.0/denom*( a33*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-
-		// auto Pxh = f.Px() + 1.0/denom*(a11*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a12*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) + a13*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
-		// auto Pyh = f.Py() + 1.0/denom*(a21*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a22*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) + a23*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
-		auto Pzh = f.Pz() + 1.0/denom*( a33*(dt*f.Jz()+wp*wp*f.Dz()-wp*wp*f.Pz()));
-
-		// f.Jx() = Jxh;
-		// f.Jy() = Jyh;
-		f.Jz() = Jzh;
-
-		// f.Px() = Pxh;
-		// f.Py() = Pyh;
-		f.Pz() = Pzh;
-
-		// f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
-		// f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
-
+		#endif
 	};
-
-};
-
-
-// specialization for TE
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			class MagneticField>
-struct MagnetizedDrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, MagneticField>{
-	double dt;
+} // end namespace magnetized_drude
 
 
-
-	MagnetizedDrudeUpdateParametrized<TE, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-
-
-		// FIXME: should incorporate static value into these constants somehow...
-		// I did the math without it, but really should have incorporated it in the first place
-		// I think it just changes the oneplus value from 1+... to eps+...
+template <typename Mode, FieldType ftype, bool forward = false>
+using MagnetizedDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   magnetized_drude::MagnetizedDrudeStorage, 
+										   magnetized_drude::MagnetizedDrudeCall<Mode, ftype, forward, magnetized_drude::MagnetizedDrudeStorage>>;
 
 
-		// all updates together (impicitly)
-		double wp = dt*DrudeFreq::get(f);
-		double vc = dt*Gamma::get(f);
-		double vx = dt*real(MagneticField::get(f).Bx())*drude::q_e/drude::m_e;
-		double vy = dt*real(MagneticField::get(f).By())*drude::q_e/drude::m_e;
-		double vz = dt*real(MagneticField::get(f).Bz())*drude::q_e/drude::m_e;
-		double oneplus = (1.0+vc+wp*wp);
-		double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+// template <typename Mode, FieldType ftype, bool forward = false>
+// using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+// 										   drude::FluidDrudeStorage, 
+// 										   drude::DrudeCall<Mode, ftype, forward, drude::FluidDrudeStorage>>;
 
-		// A matrix
-		// first col
-		double a11 = oneplus*oneplus + vx*vx;
-		double a21 = vz*oneplus+vx*vy;
-		double a31 = -vy*oneplus+vx*vz;
-		
-		// second col
-		double a12 = -vz*oneplus+vx*vy;
-		double a22 = oneplus*oneplus + vy*vy;
-		double a32 = vx*oneplus+vy*vz;
-
-		// third col
-		double a13 = vy*oneplus+vx*vz;
-		double a23 = -vx*oneplus+vy*vz;
-		double a33 = oneplus*oneplus + vz*vz;
-
-
-
-
-		auto Jxh = 1.0/denom*(a11*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a12*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) );
-		auto Jyh = 1.0/denom*(a21*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a22*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) );
-		// auto Jzh = 1.0/denom*(a31*(f.Jx()-wp*wp/dt*f.Px()+wp*wp/dt*f.Dx()) + a32*(f.Jy()-wp*wp/dt*f.Py()+wp*wp/dt*f.Dy()) + a33*(f.Jz()-wp*wp/dt*f.Pz()+wp*wp/dt*f.Dz()));
-
-		auto Pxh = f.Px() + 1.0/denom*(a11*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a12*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) );
-		auto Pyh = f.Py() + 1.0/denom*(a21*(dt*f.Jx()+wp*wp*f.Dx()-wp*wp*f.Px()) + a22*(dt*f.Jy()+wp*wp*f.Dy()-wp*wp*f.Py()) );
-		// auto Pzh = f.Pz() + 1.0/denom*(a31*(dt*f.Jx()+wp*wp/dt*f.Dx()-wp*wp*f.Px()) + a32*(dt*f.Jy()+wp*wp/dt*f.Dy()-wp*wp*f.Py()) + a33*(dt*f.Jz()+wp*wp/dt*f.Dz()-wp*wp*f.Pz()));
-
-
-		f.Jx() = Jxh;
-		f.Jy() = Jyh;
-		// f.Jz() = Jzh;
-
-		f.Px() = Pxh;
-		f.Py() = Pyh;
-		// f.Pz() = Pzh;
-
-		f.Ex() = (f.Dx() - f.Px())/(eps0*StaticValue::get(f));
-		f.Ey() = (f.Dy() - f.Py())/(eps0*StaticValue::get(f));
-		// f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
-	};
-
-};
-
-
-// specialization for 1D TEM
-template<class StaticValue,
-			class DrudeFreq,
-			class Gamma,
-			class MagneticField>
-struct MagnetizedDrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, MagneticField>{
-	double dt;
-
-
-
-	MagnetizedDrudeUpdateParametrized<TEM, StaticValue, DrudeFreq, Gamma, MagneticField>(double deltat): dt(deltat) {};
-
-	template<class YeeCell>
-	void operator()(YeeCell && f){
-		double b = Gamma::get(f)*dt;
-		double c = dt*DrudeFreq::get(f)*DrudeFreq::get(f)*(1.0/StaticValue::get(f));
-
-		auto Pzhold = f.Pz();
-		f.Pz() = 1.0/(1.0+b+dt*c)*((1.0+b)*(f.Pz()) + dt*(f.Jz()+c*f.Dz()));
-		f.Jz() = 1.0/(1.0+b+dt*c)*(-c*(Pzhold) + (f.Jz()+c*f.Dz()));
-
-		f.Ez() = (f.Dz() - f.Pz())/(eps0*StaticValue::get(f));
-	};
-
-};
 
 
 
@@ -1517,7 +1749,8 @@ struct Lorentz : public Dispersion{
 };
 struct MagnetizedDrude : public Dispersion{
 	static constexpr type value = Detail::Dispersion::MagnetizedDrude;
-	// typedef MagnetizedDrudeUpdate type;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = MagnetizedDrudeUpdate<Mode, ft, fwd>;
 };
 struct Multicoefficient : public Dispersion{
 	static constexpr type value = Detail::Dispersion::MultiCoefficient;
@@ -1529,7 +1762,7 @@ struct Anisotropic : public Dispersion{
 };
 
 
-typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz> 	DispersionTuple;
+typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz, MagnetizedDrude> 	DispersionTuple;
 
 //************************************************************
 //************************************************************
@@ -1551,49 +1784,7 @@ typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz> 	Di
 		}
 	};
 
-	// // general struct to parse XML options here
-	// template <typename ... Ts>
-	// struct ParseXMLOptions{
-	// private:
-	// 	template <typename T>
-	// 	struct atomic_parse{
-	// 		static decltype(auto) get(tinyxml2::XMLNode * n){
-	// 			if(!strcmp(n->Value(), T::name)){
-	// 				return T::readXML(n->FirstChild());
-	// 			}
-	// 		}
-	// 	};
-	// public:
-	// 	static decltype(auto) get(tinyxml2::XMLNode * n){
-	// 		nested_for_each_tuple_type<atomic_parse, std::tuple<Ts...>>(n);
-	// 	}
-	// 	static decltype(auto) get(std::string filename){
-	// 		tinyxml2::XMLDocument doc;
-	// 		doc.LoadFile(filename.c_str());
-
-	// 		tinyxml2::XMLNode * n = doc.FirstChild();
-	// 		return get(n);
-	// 	}
-	// };
-
-
-
-	// template <typename Mode, FieldType ft, bool forward=false>
-	// using ParseXMLMaterials = ParseXMLOptions<VacuumUpdate<Mode, ft, forward>,
-	// 										  ConstantUpdate<Mode, ft, forward>,
-	// 										  ConductiveUpdate<Mode, ft, forward>,
-	// 										  DrudeUpdate<Mode, ft, forward>,
-	// 										  FluidDrudeUpdate<Mode, ft, forward>,
-	// 										  LorentzUpdate<Mode, ft, forward>>;
-
-
-	// template <typename Mode, FieldType ft, bool forward=false>
-	// using ParseXMLMaterials = ParseXMLOptions<ConstantUpdate<Mode, ft, forward>,
-	// 										  ConductiveUpdate<Mode, ft, forward>>;
-
 #endif
-
-
 
 
 

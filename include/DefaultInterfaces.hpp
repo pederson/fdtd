@@ -32,7 +32,7 @@ struct GetField{
 	template <>						\
 	struct GetField<fdtd::name>{		\
 		template <class YeeCell>	\
-		static decltype(auto) get(YeeCell & f) {return f.name();}		\
+		static decltype(auto) get(YeeCell && f) {return f.name();}		\
 	};
 
 FDTD_GET_FIELD_DEF(Ex);

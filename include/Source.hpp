@@ -8,6 +8,60 @@
 
 namespace fdtd{
 
+
+namespace Detail{
+
+//***********************
+	// an assignable vector requires the non-const begin() and end()
+	// iterator accessors
+	template<typename T, typename _ = void>
+	struct has_method_freq_data : std::false_type {};
+
+	template<typename T>
+	struct has_method_freq_data<
+	      T,
+	      std::conditional_t<
+	          false,
+	          has_method_helper<
+	              decltype(std::declval<T>().freq()),
+	              decltype(std::declval<T>().min_freq()),
+	              decltype(std::declval<T>().max_freq())
+	              >,
+	          void
+	          >
+	      > : public std::true_type {};
+} // end namespace Detail
+
+
+
+
+
+// wraps around the print_summary() functionality so that it can
+// be stored for heterogeneous types
+template <typename T>
+struct FreqDataWrapper{
+private:
+  const T* mT;
+public:
+  typedef std::function<void(std::ostream &, unsigned int)> type;
+
+  FreqDataWrapper(const T & t) : mT(&t) {
+    static_assert(Detail::has_method_freq_data<T>::value, "Type must have frequency data with methods freq(), min_freq(), max_freq()");
+  };
+  FreqDataWrapper(const FreqDataWrapper & p) : mT(p.mT) {
+    static_assert(Detail::has_method_freq_data<T>::value, "Type must have frequency data with methods freq(), min_freq(), max_freq()");
+  };
+
+  double freq() {return mT->freq();};
+  double min_freq() {return mT->min_freq();};
+  double max_freq() {return mT->max_freq();};
+
+  double operator()(){return mT->freq();};
+};
+
+
+
+
 //************************************************************
 //************************************************************
 //************************************************************
@@ -17,83 +71,104 @@ namespace fdtd{
 namespace Detail{
 	enum class Function : int{
 		sin,
-		tanh
+		ricker
 	};
 }
 template <> struct NameArray<Detail::Function>{
 static constexpr std::array<const char *, 2> value = {"Sinusoid",
-													  "Tanh"};};
+													  "Ricker"};};
 constexpr std::array<const char *, 2> NameArray<Detail::Function>::value;
 
 
 //************************************************************
 //************************************************************
 
-// composable function must be in the list of possible ones
-template <typename Functor, typename Argument>
-struct ComposableFunction{
-private:
-	Argument mArg;
-
-	struct PrintArg{
-		template <typename T = Argument>
-		static std::enable_if_t<Detail::has_method_print_summary<T>::value && !std::is_void<T>::value, void>
-		get(std::ostream & os, unsigned int ntabs, Argument * arg){
-			arg->print_summary(os, ntabs);
-		}
-
-		template <typename T = Argument>
-		static std::enable_if_t<!Detail::has_method_print_summary<T>::value || std::is_void<T>::value, void>
-		get(std::ostream & os, unsigned int ntabs, Argument * arg){};
-	};
-
-	// overload this for every template specialization
-	static double functor(double t){return Functor::get(t);};
+// signal function must be in the list of possible ones
+template <typename DataPolicy>
+struct SignalFunction : public DataPolicy {
 public:
-	constexpr ComposableFunction(Argument arg) : mArg(arg) {};
+	template <typename ... Args>
+	constexpr SignalFunction(Args... args) : DataPolicy(args...) {};
 	
-	template <typename T = Argument>
-	std::enable_if_t<!std::is_void<T>::value, double>
-	operator()(double t){return functor(mArg(t));};
+	double operator()(double t){return DataPolicy::get(t, *this);};
+};
 
-	template <typename T = Argument>
-	std::enable_if_t<std::is_void<T>::value, double>
-	operator()(double t){return functor(t);};
+
+//************************************************************
+//************************************************************
+
+struct SinData{
+private:
+	double mFreq, mPhase, mDelay;
+public:
+	SinData(double Freq, double Phase=0) : mFreq(Freq), mPhase(Phase), mDelay(10.0/Freq*fdtd::pi/2.0) {};
+	typedef Detail::Function type;
+	static constexpr type value = Detail::Function::sin;
+	static constexpr double get(double t, SinData & s){return std::tanh(t/s.mDelay)*std::sin(s.mFreq*t+s.mPhase);};
+
+	double min_freq() const {return mFreq;};
+	double freq()	  const {return mFreq;};
+	double max_freq() const {return mFreq;};
 
 	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const
 	{
 		for (auto i=0; i<ntabs; i++) os << "\t" ;
-		os << "<" << NameArray<typename Functor::type>::value[static_cast<int>(Functor::value)] << ">" << std::endl;
-			PrintArg::get(os, ntabs+1, &mArg);
-		for (auto i=0; i<ntabs; i++) os << "\t" ;
-		os << "<" << NameArray<typename Functor::type>::value[static_cast<int>(Functor::value)] << ">" << std::endl;
+		os << "<Sinusoid>" << std::endl;
 
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<Freq>" << mFreq << "</Freq>" << std::endl;
+
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<Phase>" << mPhase << "</Phase>" << std::endl;
+
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "</Sinusoid>" << std::endl;
 	}
 };
 
+using Sinusoid = SignalFunction<SinData>;
+
+
+
+
 //************************************************************
 //************************************************************
 
-struct SinFunctor{
+struct RickerData{
+private:
+	double mFreq, mDelay;
+public:
+	RickerData(double Freq) : mFreq(Freq), mDelay(2.0/Freq) {};
 	typedef Detail::Function type;
-	static constexpr type value = Detail::Function::sin;
-	static constexpr double get(double t){return std::sin(t);};
+	static constexpr type value = Detail::Function::ricker;
+	static constexpr double get(double t, RickerData & s){
+		double param = fdtd::pi*s.mFreq*(t-s.mDelay);
+		return (1.0-2.0*param*param)*exp(-param*param);
+	};
+
+	double min_freq() const {return 0.0;};
+	double freq()	  const {return mFreq;};
+	double max_freq() const {return 3.0*mFreq;};
+
+
+	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const
+	{
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "<Ricker>" << std::endl;
+
+			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+			os << "<Freq>" << mFreq << "</Freq>" << std::endl;
+
+		for (auto i=0; i<ntabs; i++) os << "\t" ;
+		os << "</Ricker>" << std::endl;
+	}
 };
 
-template <typename Argument>
-using Sinusoid = ComposableFunction<SinFunctor, Argument>;
+using Ricker = SignalFunction<RickerData>;
+
 
 //************************************************************
 //************************************************************
-
-struct TanhFunctor{
-	typedef Detail::Function type;
-	static constexpr type value = Detail::Function::sin;
-	static constexpr double get(double t){return std::tanh(t);};
-};
-
-template <typename Argument>
-using Tanh = ComposableFunction<TanhFunctor, Argument>;
 
 
 //************************************************************
@@ -124,6 +199,10 @@ public:
 
 	SignalType & signal() {return mFunc;};
 	const SignalType & signal() const {return mFunc;};
+
+	double freq() const {return mFunc.freq();};
+	double min_freq() const {return mFunc.min_freq();};
+	double max_freq() const {return mFunc.max_freq();};
 
 	CellType * location() {return mLoc;};
 
@@ -190,8 +269,33 @@ SoftSource<SignalType, CellType, GetField<F>> make_soft_source(SignalType f, Cel
 //************************************************************
 
 
+// A source of this type has :
+//		- a defined functor void(double) which retrieves the
+// 			value of the source, given the time
+//
+//		- a print_summary() function
+//	
+//		- frequency data in the form of a freq() function
+struct Source{
+private:
+	typedef std::function<void(double)> 						ftype;
+	typedef std::function<void(std::ostream &, unsigned int)> 	ptype;
+	typedef std::function<double(void)> 						freqtype;
 
+	ftype 		mSrc;
+	ptype		mPrinter;
+	freqtype 	mFreqData;
+public:
+	template <typename T>
+	Source(T && t) : mSrc(t), mPrinter(PrintSummaryWrapper<T>(t)), mFreqData(FreqDataWrapper<T>(t)) {};
 
+	void operator()(double t){return mSrc(t);};
+	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const {return mPrinter(os, ntabs);};
+	double freq() const {return mFreqData();};
+};
+
+template <typename T>
+Source make_source(T && t){return Source(std::forward<T>(t));};
 
 
 
@@ -205,17 +309,19 @@ SoftSource<SignalType, CellType, GetField<F>> make_soft_source(SignalType f, Cel
 //************************************************************
 
 template <typename Identifier>
-struct SourceMap : public std::map<Identifier, std::function<void(double)>>
+struct SourceMap : public std::map<Identifier, Source>
 {
-	typedef std::map<Identifier, std::function<void(double)>> MapType;
+	typedef std::map<Identifier, Source> MapType;
 	using MapType::begin;
 	using MapType::end;
+	using MapType::cbegin;
+	using MapType::cend;
 
 	void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const
 	{
 		for (auto i=0; i<ntabs; i++) os << "\t" ;
 		os << "<SourceMap>" << std::endl;
-			for (auto it=begin(); it!=end(); it++){
+			for (auto it=cbegin(); it!=cend(); it++){
 
 				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 				std::cout << "<Item>" << std::endl;

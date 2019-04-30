@@ -13,8 +13,10 @@
 #include "include/Source.hpp"
 #include "include/StaticFields.hpp"
 
+
 // runtime functionality
 #include "include/MaterialMap.hpp"
 #include "include/BoundaryMap.hpp"
+#include "include/DataCapture.hpp"
 
 #endif

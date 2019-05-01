@@ -1202,6 +1202,30 @@ using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward,
 
 
 
+#define FDTD_DEFINE_HAS_METHOD(name) 				\
+	namespace Detail{								\
+	template <typename T, typename _ = void>		\
+	struct has_method_ ## name : std::false_type {};	\
+													\
+	template <typename T>							\
+	struct has_method_## name<							\
+	      T,										\
+	      std::conditional_t<						\
+	          false,								\
+	          has_method_helper<					\
+	              decltype(std::declval<T>().name())	\
+	              >,									\
+	          void										\
+	          >											\
+	      > : public std::true_type {};					\
+} // end namespace Detail
+
+
+FDTD_DEFINE_HAS_METHOD(Bx);
+FDTD_DEFINE_HAS_METHOD(By);
+FDTD_DEFINE_HAS_METHOD(Bz);
+
+
 namespace magnetized_drude{
 	struct MagnetizedDrudeUpdate3D{
 		// template <typename T, typename dtType>
@@ -1223,42 +1247,43 @@ namespace magnetized_drude{
 
 	//////////////// Implicit Euler (1st order) ////////////////////////
 
-		template <typename T, typename dtType>
+		template <typename T, typename BxType, typename ByType, typename BzType, typename dtType>
 		static void implicit_update(T && Dx, T && Dy, T && Dz,
 									T && Ex, T && Ey, T && Ez,
 									T && Px, T && Py, T && Pz,
 									T && Jx, T && Jy, T && Jz,
-									const double & Bx, const double & By, const double & Bz,
+									BxType && Bx, ByType && By, BzType && Bz,
 								   const double & eps_rel,
 								   double eps_0, 
 								   const double & drude_freq, 
 								   const double & gamma,
 								   dtType && dt){
+			typedef decltype(Bx*By*Bz) 	BType;
 
 			// all updates together (impicitly)
 			double wp = dt*drude_freq;
 			double vc = dt*gamma;
-			double vx = dt*Bx*drude::q_e/drude::m_e;
-			double vy = dt*By*drude::q_e/drude::m_e;
-			double vz = dt*Bz*drude::q_e/drude::m_e;
+			BType vx = dt*Bx*drude::q_e/drude::m_e;
+			BType vy = dt*By*drude::q_e/drude::m_e;
+			BType vz = dt*Bz*drude::q_e/drude::m_e;
 			double oneplus = (1.0+vc+wp*wp);
-			double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+			BType denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
 
 			// A matrix
 			// first col
-			double a11 = oneplus*oneplus + vx*vx;
-			double a21 = vz*oneplus+vx*vy;
-			double a31 = -vy*oneplus+vx*vz;
+			BType a11 = oneplus*oneplus + vx*vx;
+			BType a21 = vz*oneplus+vx*vy;
+			BType a31 = -vy*oneplus+vx*vz;
 			
 			// second col
-			double a12 = -vz*oneplus+vx*vy;
-			double a22 = oneplus*oneplus + vy*vy;
-			double a32 = vx*oneplus+vy*vz;
+			BType a12 = -vz*oneplus+vx*vy;
+			BType a22 = oneplus*oneplus + vy*vy;
+			BType a32 = vx*oneplus+vy*vz;
 
 			// third col
-			double a13 = vy*oneplus+vx*vz;
-			double a23 = -vx*oneplus+vy*vz;
-			double a33 = oneplus*oneplus + vz*vz;
+			BType a13 = vy*oneplus+vx*vz;
+			BType a23 = -vx*oneplus+vy*vz;
+			BType a33 = oneplus*oneplus + vz*vz;
 
 
 			auto Jxh = 1.0/denom*(a11*(Jx-wp*wp/dt*Px+wp*wp/dt*Dx) + a12*(Jy-wp*wp/dt*Py+wp*wp/dt*Dy) + a13*(Jz-wp*wp/dt*Pz+wp*wp/dt*Dz));
@@ -1304,59 +1329,60 @@ namespace magnetized_drude{
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
-		template <typename T, typename dtType>
+		template <typename T, typename BxType, typename ByType, typename BzType, typename dtType>
 		static void implicit_update(T && Dx, T && Dy,
 									T && Ex, T && Ey,
 									T && Px, T && Py,
 									T && Jx, T && Jy,
-									const double & Bx, const double & By, const double & Bz,
+									BxType && Bx, ByType && By, BzType && Bz,
 								   const double & eps_rel,
 								   double eps_0, 
 								   const double & drude_freq, 
 								   const double & gamma,
 								   dtType && dt){
+			typedef decltype(Bx*By*Bz) 	BType;
 
 			// some constants
 			double wp = dt*drude_freq;
 			double vc = 0.5*dt*gamma;
-			double vx = 0.5*dt*Bx*drude::q_e/drude::m_e;
-			double vy = 0.5*dt*By*drude::q_e/drude::m_e;
-			double vz = 0.5*dt*Bz*drude::q_e/drude::m_e;
+			BType vx = 0.5*dt*Bx*drude::q_e/drude::m_e;
+			BType vy = 0.5*dt*By*drude::q_e/drude::m_e;
+			BType vz = 0.5*dt*Bz*drude::q_e/drude::m_e;
 			double oneplus = (1.0+vc);
-			double denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
+			BType denom = oneplus*(oneplus*oneplus + (vx*vx + vy*vy + vz*vz));
 
 			// A matrix
 			// first col
-			double a11 = oneplus*oneplus + vx*vx;
-			double a21 = vz*oneplus+vx*vy;
-			double a31 = -vy*oneplus+vx*vz;
+			BType a11 = oneplus*oneplus + vx*vx;
+			BType a21 = vz*oneplus+vx*vy;
+			BType a31 = -vy*oneplus+vx*vz;
 			
 			// second col
-			double a12 = -vz*oneplus+vx*vy;
-			double a22 = oneplus*oneplus + vy*vy;
-			double a32 = vx*oneplus+vy*vz;
+			BType a12 = -vz*oneplus+vx*vy;
+			BType a22 = oneplus*oneplus + vy*vy;
+			BType a32 = vx*oneplus+vy*vz;
 
 			// third col
-			double a13 = vy*oneplus+vx*vz;
-			double a23 = -vx*oneplus+vy*vz;
-			double a33 = oneplus*oneplus + vz*vz;
+			BType a13 = vy*oneplus+vx*vz;
+			BType a23 = -vx*oneplus+vy*vz;
+			BType a33 = oneplus*oneplus + vz*vz;
 
 
 			// B matrix
 			// first col
-			double b11 = 1.0-vc;
-			double b21 = vz;
-			double b31 = -vy;
+			BType b11 = 1.0-vc;
+			BType b21 = vz;
+			BType b31 = -vy;
 			
 			// second col
-			double b12 = -vz;
-			double b22 = 1.0-vc;
-			double b32 = vx;
+			BType b12 = -vz;
+			BType b22 = 1.0-vc;
+			BType b32 = vx;
 
 			// third col
-			double b13 = vy;
-			double b23 = -vx;
-			double b33 = 1.0-vc;
+			BType b13 = vy;
+			BType b23 = -vx;
+			BType b33 = 1.0-vc;
 
 			// first update P
 			Px += dt*Jx;
@@ -1663,6 +1689,286 @@ namespace magnetized_drude{
 
 		#endif
 	};
+
+
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct MagnetizedFluidDrudeStorage{
+		FDTD_DECLARE_MEMBER(double, Bx);
+		FDTD_DECLARE_MEMBER(double, By);
+		FDTD_DECLARE_MEMBER(double, Bz);
+		FDTD_DECLARE_MEMBER(double, dt);
+		static constexpr double Kval = fdtd::sqrt(drude::q_e*drude::q_e/(drude::m_e*fdtd::eps0));
+
+		typedef MagnetizedFluidDrudeStorage self_t;
+	public:
+		static constexpr const char * name = "MagnetizedFluidDrude";
+
+		MagnetizedFluidDrudeStorage(){};
+		MagnetizedFluidDrudeStorage(double Bx, double By, double Bz, double dt) : mBx(Bx), mBy(By), mBz(Bz), mdt(dt) {};
+		MagnetizedFluidDrudeStorage(double Bx, double By, double Bz) : mBx(Bx), mBy(By), mBz(Bz) {};
+		template <typename ... Args>
+		static const double & getBx(self_t & c, Args && ... args){return c.Bx();}
+		template <typename ... Args>
+		static const double & getBy(self_t & c, Args && ... args){return c.By();}
+		template <typename ... Args>
+		static const double & getBz(self_t & c, Args && ... args){return c.Bz();}
+
+		template <typename ... Args>
+		static constexpr decltype(auto) getK(self_t & c, Args && ... args){return 1.0;}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getFreq(self_t & c, CellType && f, Args && ... args){return Kval*std::sqrt(f.ne());}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getGamma(self_t & c, CellType && f, Args && ... args){return f.nu_m();}
+		template <typename ... Args>
+		static decltype(auto) getDt(self_t & c, Args && ... args){return c.dt();}
+	
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<MagnetizedFluidDrude>" << std::endl;
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<B>(" << mBx << ", " << mBy << ", " << mBz << ")</B>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</MagnetizedFluidDrude>" << std::endl;
+		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static MagnetizedFluidDrudeStorage readXML(tinyxml2::XMLNode * n, double dt){
+			MagnetizedFluidDrudeStorage cs;
+			cs.dt() = dt;
+			auto c = (n->FirstChild());
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "B")){
+					// read
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					std::string B;
+					// now parse
+					std::getline(ss, B, '(');
+					std::getline(ss, B, ',');
+					std::stringstream(B) >> cs.Bx();
+					std::getline(ss, B, ',');
+					std::stringstream(B) >> cs.By();
+					std::getline(ss, B, ')');
+					std::stringstream(B) >> cs.Bz();
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static MagnetizedFluidDrudeStorage readXML(std::string filename, double dt) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n, dt);
+		}
+
+		#endif
+	};
+
+
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct SelfMagnetizedFluidDrudeStorage{
+		FDTD_DECLARE_MEMBER(double, dt);
+		static constexpr double Kval = fdtd::sqrt(drude::q_e*drude::q_e/(drude::m_e*fdtd::eps0));
+
+		typedef SelfMagnetizedFluidDrudeStorage self_t;
+	public:
+		static constexpr const char * name = "SelfMagnetizedFluidDrude";
+
+		SelfMagnetizedFluidDrudeStorage(){};
+		SelfMagnetizedFluidDrudeStorage(double dt) :  mdt(dt) {};
+
+		// some components might not be defined, so they are set to zero...
+		// this could be potentially dangerous
+		template <typename CellType, typename ... Args, bool hasBx = Detail::has_method_Bx<CellType>::value>
+		static std::enable_if_t<hasBx, decltype(std::declval<CellType>().Bx())> 
+		getBx(self_t & c, CellType && f, Args && ... args){return f.Bx();}
+
+		template <typename CellType, typename ... Args, bool hasBx = Detail::has_method_Bx<CellType>::value>
+		static std::enable_if_t<!hasBx, double> 
+		getBx(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename CellType, typename ... Args, bool hasBy = Detail::has_method_By<CellType>::value>
+		static std::enable_if_t<hasBy, decltype(std::declval<CellType>().By())> 
+		getBy(self_t & c, CellType && f, Args && ... args){return f.By();}
+
+		template <typename CellType, typename ... Args, bool hasBy = Detail::has_method_By<CellType>::value>
+		static std::enable_if_t<!hasBy, double> 
+		getBy(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename CellType, typename ... Args, bool hasBz = Detail::has_method_Bz<CellType>::value>
+		static std::enable_if_t<hasBz, decltype(std::declval<CellType>().Bz())> 
+		getBz(self_t & c, CellType && f, Args && ... args){return f.Bz();}
+
+		template <typename CellType, typename ... Args, bool hasBz = Detail::has_method_Bz<CellType>::value>
+		static std::enable_if_t<!hasBz, double> 
+		getBz(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename ... Args>
+		static constexpr decltype(auto) getK(self_t & c, Args && ... args){return 1.0;}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getFreq(self_t & c, CellType && f, Args && ... args){return Kval*std::sqrt(f.ne());}
+		template <typename CellType, typename ... Args>
+		static decltype(auto) getGamma(self_t & c, CellType && f, Args && ... args){return f.nu_m();}
+		template <typename ... Args>
+		static decltype(auto) getDt(self_t & c, Args && ... args){return c.dt();}
+	
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<SelfMagnetizedFluidDrude>" << "</SelfMagnetizedFluidDrude>" << std::endl;
+		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static self_t readXML(tinyxml2::XMLNode * n, double dt){
+			self_t cs;
+			cs.dt() = dt;
+			auto c = (n->FirstChild());
+
+			return cs;
+		}
+
+		static self_t readXML(std::string filename, double dt) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n, dt);
+		}
+
+		#endif
+	};
+
+
+
+	// class that defines a conductive-coefficient storage policy
+	// and the interface to get(...) those values in order to 
+	// interface with the ConductiveCall function
+	struct SelfMagnetizedDrudeStorage{
+		FDTD_DECLARE_MEMBER(double, K);
+		FDTD_DECLARE_MEMBER(double, Freq);
+		FDTD_DECLARE_MEMBER(double, Gamma);
+		FDTD_DECLARE_MEMBER(double, dt);
+
+		typedef SelfMagnetizedDrudeStorage self_t;
+	public:
+		static constexpr const char * name = "SelfMagnetizedDrude";
+
+		SelfMagnetizedDrudeStorage(){};
+		SelfMagnetizedDrudeStorage(double dt) :  mdt(dt) {};
+
+		// some components might not be defined, so they are set to zero...
+		// this could be potentially dangerous
+		template <typename CellType, typename ... Args, bool hasBx = Detail::has_method_Bx<CellType>::value>
+		static std::enable_if_t<hasBx, decltype(std::declval<CellType>().Bx())> 
+		getBx(self_t & c, CellType && f, Args && ... args){return f.Bx();}
+
+		template <typename CellType, typename ... Args, bool hasBx = Detail::has_method_Bx<CellType>::value>
+		static std::enable_if_t<!hasBx, double> 
+		getBx(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename CellType, typename ... Args, bool hasBy = Detail::has_method_By<CellType>::value>
+		static std::enable_if_t<hasBy, decltype(std::declval<CellType>().By())> 
+		getBy(self_t & c, CellType && f, Args && ... args){return f.By();}
+
+		template <typename CellType, typename ... Args, bool hasBy = Detail::has_method_By<CellType>::value>
+		static std::enable_if_t<!hasBy, double> 
+		getBy(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename CellType, typename ... Args, bool hasBz = Detail::has_method_Bz<CellType>::value>
+		static std::enable_if_t<hasBz, decltype(std::declval<CellType>().Bz())> 
+		getBz(self_t & c, CellType && f, Args && ... args){return f.Bz();}
+
+		template <typename CellType, typename ... Args, bool hasBz = Detail::has_method_Bz<CellType>::value>
+		static std::enable_if_t<!hasBz, double> 
+		getBz(self_t & c, CellType && f, Args && ... args){return 0.0;}
+
+		template <typename ... Args>
+		static const double & getK(self_t & c, Args && ... args){return c.K();}
+		template <typename ... Args>
+		static const double & getFreq(self_t & c, Args && ... args){return c.Freq();}
+		template <typename ... Args>
+		static const double & getGamma(self_t & c, Args && ... args){return c.Gamma();}
+		template <typename ... Args>
+		static const double & getDt(self_t & c, Args && ... args){return c.dt();}
+
+
+		void print_summary(std::ostream & os = std::cout, unsigned int ntabs=0) const{
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "<SelfMagnetizedDrude>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Constant>" <<  mK << "</Constant>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Freq>" <<  mFreq << "</Freq>" << std::endl;
+
+				for (auto i=0; i<ntabs+1; i++) os << "\t" ;
+				os << "<Gamma>" <<  mGamma << "</Gamma>" << std::endl;
+			for (auto i=0; i<ntabs; i++) os << "\t" ;
+			os << "</SelfMagnetizedDrude>" << std::endl;		}
+
+
+		#ifdef TINYXML2_INCLUDED
+
+		static self_t readXML(tinyxml2::XMLNode * n, double dt){
+			self_t cs;
+			cs.dt() = dt;
+			auto c = (n->FirstChild());
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "Constant")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.K();
+				}
+				if(!strcmp(c->Value(), "Freq")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Freq();
+				}
+				if(!strcmp(c->Value(), "Gamma")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					ss >> cs.Gamma();
+				}
+
+				c = (c->NextSibling());
+			}
+
+			return cs;
+		}
+
+		static self_t readXML(std::string filename, double dt) {
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(filename.c_str());
+
+			tinyxml2::XMLNode * n = doc.FirstChild();
+			return readXML(n, dt);
+		}
+
+		#endif
+	};
 } // end namespace magnetized_drude
 
 
@@ -1672,10 +1978,21 @@ using MagnetizedDrudeUpdate = DispersiveUpdate<Mode, ftype, forward,
 										   magnetized_drude::MagnetizedDrudeCall<Mode, ftype, forward, magnetized_drude::MagnetizedDrudeStorage>>;
 
 
-// template <typename Mode, FieldType ftype, bool forward = false>
-// using FluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
-// 										   drude::FluidDrudeStorage, 
-// 										   drude::DrudeCall<Mode, ftype, forward, drude::FluidDrudeStorage>>;
+template <typename Mode, FieldType ftype, bool forward = false>
+using MagnetizedFluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   magnetized_drude::MagnetizedFluidDrudeStorage, 
+										   magnetized_drude::MagnetizedDrudeCall<Mode, ftype, forward, magnetized_drude::MagnetizedFluidDrudeStorage>>;
+
+
+template <typename Mode, FieldType ftype, bool forward = false>
+using SelfMagnetizedFluidDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   magnetized_drude::SelfMagnetizedFluidDrudeStorage, 
+										   magnetized_drude::MagnetizedDrudeCall<Mode, ftype, forward, magnetized_drude::SelfMagnetizedFluidDrudeStorage>>;
+
+template <typename Mode, FieldType ftype, bool forward = false>
+using SelfMagnetizedDrudeUpdate = DispersiveUpdate<Mode, ftype, forward, 
+										   magnetized_drude::SelfMagnetizedDrudeStorage, 
+										   magnetized_drude::MagnetizedDrudeCall<Mode, ftype, forward, magnetized_drude::SelfMagnetizedDrudeStorage>>;
 
 
 
@@ -1699,21 +2016,27 @@ namespace Detail{
 		FluidDrude,
 		Lorentz,
 		MagnetizedDrude,
+		SelfMagnetizedDrude,
+		MagnetizedFluidDrude,
+		SelfMagnetizedFluidDrude,
 		MultiCoefficient,
 		Anisotropic
 	};
 }
 template <> struct NameArray<Detail::Dispersion>{
-static constexpr std::array<const char *, 9> value = {"Vacuum",
+static constexpr std::array<const char *, 12> value = {"Vacuum",
 												   "Constant",
 												   "Conductive",
 												   "Drude",
 												   "FluidDrude",
 												   "Lorentz",
 												   "MagnetizedDrude",
+												   "SelfMagnetizedDrude",
+												   "MagnetizedFluidDrude",
+												   "SelfMagnetizedFluidDrude",
 												   "MultiCoefficient",
 												   "Anisotropic"};};
-constexpr std::array<const char *, 9> NameArray<Detail::Dispersion>::value;
+constexpr std::array<const char *, 12> NameArray<Detail::Dispersion>::value;
 
 
 struct Dispersion{typedef Detail::Dispersion type;};
@@ -1752,6 +2075,21 @@ struct MagnetizedDrude : public Dispersion{
 	template <typename Mode, FieldType ft, bool fwd>
 	using update_type = MagnetizedDrudeUpdate<Mode, ft, fwd>;
 };
+struct SelfMagnetizedDrude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::SelfMagnetizedDrude;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = SelfMagnetizedDrudeUpdate<Mode, ft, fwd>;
+};
+struct MagnetizedFluidDrude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::MagnetizedFluidDrude;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = MagnetizedFluidDrudeUpdate<Mode, ft, fwd>;
+};
+struct SelfMagnetizedFluidDrude : public Dispersion{
+	static constexpr type value = Detail::Dispersion::SelfMagnetizedFluidDrude;
+	template <typename Mode, FieldType ft, bool fwd>
+	using update_type = SelfMagnetizedFluidDrudeUpdate<Mode, ft, fwd>;
+};
 struct Multicoefficient : public Dispersion{
 	static constexpr type value = Detail::Dispersion::MultiCoefficient;
 	// typedef MulticoefficientUpdate type;
@@ -1762,7 +2100,9 @@ struct Anisotropic : public Dispersion{
 };
 
 
-typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz, MagnetizedDrude> 	DispersionTuple;
+typedef std::tuple<Vacuum, Constant, Conductive, Drude, FluidDrude, Lorentz, 
+				   MagnetizedDrude, SelfMagnetizedDrude, MagnetizedFluidDrude, SelfMagnetizedFluidDrude
+				   > 	DispersionTuple;
 
 //************************************************************
 //************************************************************

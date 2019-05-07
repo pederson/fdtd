@@ -45,7 +45,7 @@ namespace fdtd{
 template <typename CellType>
 struct MaterialPair{
 private:
-	typedef std::function<void(std::add_lvalue_reference_t<CellType>)> function_type;
+	typedef std::function<void(std::add_rvalue_reference_t<CellType>)> function_type;
 	function_type 		mElectric;
 	function_type 		mMagnetic;
 
@@ -97,7 +97,7 @@ private:
 	struct XMLReader{
 		template <typename E, typename M>
 		struct atomic_build{
-			typedef std::function<void(std::add_lvalue_reference_t<CellType>)> ftype;
+			typedef std::function<void(std::add_rvalue_reference_t<CellType>)> ftype;
 			typedef std::function<void(std::ostream &, unsigned int)> ptype;
 			
 			static void get(double dt, Detail::Dispersion de, Detail::Dispersion dm, tinyxml2::XMLNode * e, tinyxml2::XMLNode * m, MaterialPair & mp){

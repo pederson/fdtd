@@ -43,7 +43,18 @@ constexpr std::array<const char *, 8> NameArray<Boundary>::value;
 struct BoundaryOptions{
 private:
 	Boundary mConds[3][2];
+	double mBlochK[3], mBlochR[3];
 
+	void print_value(const Boundary & b) const {
+		if (b==Boundary::BlochPeriodic){
+			std::cout << NameArray<Boundary>::value[static_cast<char>(b)] ;
+			std::cout << "<K>" << mBlochK[0] << ", " << mBlochK[1] << ", " << mBlochK[2] << "</K>" ;
+			std::cout << "<R>" << mBlochR[0] << ", " << mBlochR[1] << ", " << mBlochR[2] << "</R>" ;
+		}
+		else {
+			std::cout << NameArray<Boundary>::value[static_cast<char>(b)] ;
+		}
+	}
 public:
 
 	BoundaryOptions() {
@@ -53,6 +64,9 @@ public:
 			} 
 		}
 	}
+
+	double & BlochK(Dir d){return mBlochK[static_cast<int>(d)];};
+	double & BlochR(Dir d){return mBlochR[static_cast<int>(d)];};
 
 	template <Dir d, Orientation o>
 	Boundary & get() {return mConds[static_cast<char>(d)][static_cast<char>(o)];};
@@ -74,27 +88,27 @@ public:
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "<X>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::X, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				os << "<MIN>" ; print_value(get<Dir::X, Orientation::MIN>()); std::cout << "</MIN>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::X, Orientation::MAX>())] << "</MAX>" <<  std::endl;
+				os << "<MAX>" ; print_value(get<Dir::X, Orientation::MAX>()); std::cout << "</MAX>" <<  std::endl;
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "</X>" << std::endl ;
 			
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "<Y>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Y, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				os << "<MIN>" ; print_value(get<Dir::Y, Orientation::MIN>()); std::cout << "</MIN>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Y, Orientation::MAX>())] << "</MAX>" <<  std::endl;
+				os << "<MAX>" ; print_value(get<Dir::Y, Orientation::MAX>()); std::cout << "</MAX>" <<  std::endl;
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "</Y>" << std::endl ;
 
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "<Z>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MIN>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Z, Orientation::MIN>())] << "</MIN>" <<  std::endl;
+				os << "<MIN>" ; print_value(get<Dir::Z, Orientation::MIN>()); std::cout << "</MIN>" <<  std::endl;
 				for (auto i=0; i<ntabs+2; i++) os << "\t" ;
-				os << "<MAX>" << NameArray<Boundary>::value[static_cast<char>(get<Dir::Z, Orientation::MAX>())] << " </MAX>" <<  std::endl;
+				os << "<MAX>" ; print_value(get<Dir::Z, Orientation::MAX>()); std::cout << "</MAX>" <<  std::endl;
 			for (auto i=0; i<ntabs+1; i++) os << "\t" ;
 			os << "</Z>" << std::endl ;
 		for (auto i=0; i<ntabs; i++) os << "\t" ;
@@ -104,6 +118,48 @@ public:
 
 
 	#ifdef TINYXML2_INCLUDED
+
+	static void readItem(Boundary & b, BoundaryOptions & bo, tinyxml2::XMLNode * n){
+		if (!strcmp(n->Value(), "BlochPeriodic")) {
+			auto c = (n->FirstChild());
+				
+
+			while (c != nullptr){
+				std::stringstream ss;
+
+				if(!strcmp(c->Value(), "K")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					int idx=0;
+					std::string pt;
+					while(getline(ss, pt, ',')){
+						std::stringstream spt;
+						spt << pt;
+						spt >> bo.mBlochK[idx];
+						idx++;
+					}
+				}
+				else if(!strcmp(c->Value(), "R")){
+					tinyxml2::XMLNode * mm = c->FirstChild();
+					ss << mm->Value();
+					int idx=0;
+					std::string pt;
+					while(getline(ss, pt, ',')){
+						std::stringstream spt;
+						spt << pt;
+						spt >> bo.mBlochR[idx];
+						idx++;
+					}
+				}
+
+				c = (c->NextSibling());
+			}
+
+		}
+
+		b = MapNameTo<Boundary>(n->Value());
+	}
+
 	static BoundaryOptions readXML(std::string filename) {
 		BoundaryOptions bo;
 
@@ -121,10 +177,10 @@ public:
 				tinyxml2::XMLNode * mm = c->FirstChild();
 				while (mm != nullptr){
 					if (!strcmp(mm->Value(), "MIN")){
-						bo.get<Dir::X, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::X, Orientation::MIN>(), bo, mm->FirstChild());
 					}
 					else if (!strcmp(mm->Value(), "MAX")){
-						bo.get<Dir::X, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::X, Orientation::MAX>(), bo, mm->FirstChild());
 					}
 					mm = mm->NextSibling();
 				}
@@ -133,10 +189,10 @@ public:
 				tinyxml2::XMLNode * mm = c->FirstChild();
 				while (mm != nullptr){
 					if (!strcmp(mm->Value(), "MIN")){
-						bo.get<Dir::Y, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::Y, Orientation::MIN>(), bo, mm->FirstChild());
 					}
 					else if (!strcmp(mm->Value(), "MAX")){
-						bo.get<Dir::Y, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::Y, Orientation::MAX>(), bo, mm->FirstChild());
 					}
 					mm = mm->NextSibling();
 				}
@@ -145,10 +201,10 @@ public:
 				tinyxml2::XMLNode * mm = c->FirstChild();
 				while (mm != nullptr){
 					if (!strcmp(mm->Value(), "MIN")){
-						bo.get<Dir::Z, Orientation::MIN>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::Z, Orientation::MIN>(), bo, mm->FirstChild());
 					}
 					else if (!strcmp(mm->Value(), "MAX")){
-						bo.get<Dir::Z, Orientation::MAX>() = MapNameTo<Boundary>(mm->FirstChild()->Value());
+						readItem(bo.get<Dir::Z, Orientation::MAX>(), bo, mm->FirstChild());
 					}
 					mm = mm->NextSibling();
 				}
@@ -198,7 +254,7 @@ struct DefaultDecorator{
 // Single cell update from source to destination
 // by applying a mask (compile-time) and a 
 // decorator (runtime)
-template <typename Mode, Boundary b, Dir d, Orientation o, 
+template <typename Mode, Boundary b, Dir d, Orientation o, FieldType ft, 
 		  typename DecoratorPolicy = DefaultDecorator>
 struct SingleUpdate : public DecoratorPolicy {
 private:
@@ -231,11 +287,23 @@ public:
 	template <typename... Args>
 	SingleUpdate(Args... init) : DecoratorPolicy(init...) {};
 
-	template <typename SourceIterator, typename DestIterator>
-	void update(SourceIterator sit, DestIterator dit){
+	template <typename SourceIterator, typename DestIterator, FieldType f=ft>
+	std::enable_if_t<f == FieldType::Electric,void>
+	update(SourceIterator sit, DestIterator dit){
 		Detail::for_each_tuple_type<typename FieldComponents<Mode>::electric, atomic_update>(sit, dit, *this);
+	}
+
+	template <typename SourceIterator, typename DestIterator, FieldType f=ft>
+	std::enable_if_t<f != FieldType::Electric,void>
+	update(SourceIterator sit, DestIterator dit){
 		Detail::for_each_tuple_type<typename FieldComponents<Mode>::magnetic, atomic_update>(sit, dit, *this);
 	}
+
+	// template <typename SourceIterator, typename DestIterator>
+	// void update(SourceIterator sit, DestIterator dit){
+	// 	Detail::for_each_tuple_type<typename FieldComponents<Mode>::electric, atomic_update>(sit, dit, *this);
+	// 	Detail::for_each_tuple_type<typename FieldComponents<Mode>::magnetic, atomic_update>(sit, dit, *this);
+	// }
 
 	// turn this into a functor to enable runtime polymorphism
 	template <typename SourceIterator, typename DestIterator>
@@ -375,6 +443,8 @@ public:
 
 	pointer operator->() {return &DereferenceFunctor::get(mIt, *this);};
 	reference operator*() {return DereferenceFunctor::get(mIt, *this);};
+	pointer operator->() const {return &DereferenceFunctor::get(mIt, *this);};
+	reference operator*() const {return DereferenceFunctor::get(mIt, *this);};
 
 	// increment operators
 	self_type operator++(){
@@ -479,8 +549,10 @@ BoundaryData make_pec_boundary(Iterator begit, Iterator endit){
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::PEC, d, o> 	SingleUpdateType;
-	SingleUpdateType s;
+	typedef SingleUpdate<Mode, Boundary::PEC, d, o, FieldType::Electric> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE;
+	typedef SingleUpdate<Mode, Boundary::PEC, d, o, FieldType::Magnetic> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH;
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -488,10 +560,10 @@ BoundaryData make_pec_boundary(Iterator begit, Iterator endit){
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::PEC, d, o, upE, upH);
 };
@@ -560,8 +632,10 @@ BoundaryData make_pmc_boundary(Iterator begit, Iterator endit){
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::PMC, d, o> 	SingleUpdateType;
-	SingleUpdateType s;
+	typedef SingleUpdate<Mode, Boundary::PMC, d, o, FieldType::Electric> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE;
+	typedef SingleUpdate<Mode, Boundary::PMC, d, o, FieldType::Magnetic> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH;
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -569,10 +643,10 @@ BoundaryData make_pmc_boundary(Iterator begit, Iterator endit){
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::PMC, d, o, upE, upH);
 };
@@ -610,8 +684,10 @@ BoundaryData make_symmetric_boundary(Iterator begit, Iterator endit){
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::Symmetric, d, o> 	SingleUpdateType;
-	SingleUpdateType s;
+	typedef SingleUpdate<Mode, Boundary::Symmetric, d, o, FieldType::Electric> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE;
+	typedef SingleUpdate<Mode, Boundary::Symmetric, d, o, FieldType::Magnetic> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH;
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -619,10 +695,10 @@ BoundaryData make_symmetric_boundary(Iterator begit, Iterator endit){
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::Symmetric, d, o, upE, upH);
 };
@@ -661,8 +737,10 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::Antisymmetric, d, o> 	SingleUpdateType;
-	SingleUpdateType s;
+	typedef SingleUpdate<Mode, Boundary::Antisymmetric, d, o, FieldType::Electric> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE;
+	typedef SingleUpdate<Mode, Boundary::Antisymmetric, d, o, FieldType::Magnetic> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH;
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -670,10 +748,10 @@ BoundaryData make_antisymmetric_boundary(Iterator begit, Iterator endit){
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit), SourceIterator(endit),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::Antisymmetric, d, o, upE, upH);
 };
@@ -693,10 +771,14 @@ struct GetNeighborPeriodic : public Functor{
 	// Functor fctor;
 
 	GetNeighborPeriodic() {};
-	GetNeighborPeriodic(Functor & f) : Functor(f) {};
+	GetNeighborPeriodic(const Functor & f) : Functor(f) {};
+	GetNeighborPeriodic(const Functor && f) : Functor(f) {};
 
 	template <typename IteratorType>
 	static decltype(auto) get(IteratorType && it, GetNeighborPeriodic & g) {return g(it);};
+
+	template <typename IteratorType>
+	static decltype(auto) get(IteratorType && it, const GetNeighborPeriodic & g) {return g(it);};
 };
 
 
@@ -720,6 +802,7 @@ BoundaryData make_periodic_boundary(Iterator begit, Iterator endit, Functor f){
 	static_assert(d != Dir::NONE, "Must have a valid direction!");
 	static_assert(o != Orientation::NONE, "Must have a valid orientation!");
 
+	// static_assert(std::is_same<Functor, void>::value, "DEBUG");
 	// source iterator
 	typedef PeriodicIterator<Iterator, Functor> 	SourceIterator;
 	// typedef std::conditional_t<o==Orientation::MIN, Iterator, PeriodicIterator<Iterator, Functor>>			SourceIterator;
@@ -728,8 +811,10 @@ BoundaryData make_periodic_boundary(Iterator begit, Iterator endit, Functor f){
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::Periodic, d, o> 	SingleUpdateType;
-	SingleUpdateType s;
+	typedef SingleUpdate<Mode, Boundary::Periodic, d, o, FieldType::Electric> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE;
+	typedef SingleUpdate<Mode, Boundary::Periodic, d, o, FieldType::Magnetic> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH;
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -737,10 +822,10 @@ BoundaryData make_periodic_boundary(Iterator begit, Iterator endit, Functor f){
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::Periodic, d, o, upE, upH);
 };
@@ -781,8 +866,10 @@ BoundaryData make_bloch_periodic_boundary(Iterator begit, Iterator endit, Functo
 	typedef std::conditional_t<o==Orientation::MIN, MinIterator<Iterator, d>, MaxIterator<Iterator, d>>			DestIterator;
 
 	// single update
-	typedef SingleUpdate<Mode, Boundary::BlochPeriodic, d, o, BlochDecorator> 	SingleUpdateType;
-	SingleUpdateType s(BlochFactor);
+	typedef SingleUpdate<Mode, Boundary::BlochPeriodic, d, o, FieldType::Electric, BlochDecorator> 	SingleUpdateTypeE;
+	SingleUpdateTypeE sE(BlochFactor);
+	typedef SingleUpdate<Mode, Boundary::BlochPeriodic, d, o, FieldType::Magnetic, BlochDecorator> 	SingleUpdateTypeH;
+	SingleUpdateTypeH sH(std::conj(BlochFactor));
 
 	// function type
 	typedef std::function<void(SourceIterator, DestIterator)> FunctorType;
@@ -790,10 +877,10 @@ BoundaryData make_bloch_periodic_boundary(Iterator begit, Iterator endit, Functo
 	// whole-boundary update
 	auto upE = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sE));
 	auto upH = make_boundary_updater(SourceIterator(begit, f), SourceIterator(endit, f),
 									 DestIterator(begit), DestIterator(endit),
-									 static_cast<FunctorType>(s));
+									 static_cast<FunctorType>(sH));
 
 	return BoundaryData(Boundary::BlochPeriodic, d, o, upE, upH);
 };

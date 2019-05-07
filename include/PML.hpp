@@ -370,7 +370,7 @@ struct PMLParameterModel{
 	double msMax, mkMax, maMax;
 
 	PMLParameterModel(double dx)
-	: mM(3), mMa(1), msMax(0.8*(mM+1)/(imp0*dx)), mkMax(5), maMax(1.0) {}; //0.05) {};
+	: mM(3), mMa(1), msMax(0.8*(mM+1)/(imp0*dx)), mkMax(5), maMax(0.05) {}; //1.0, 0.05) {};
 
 	PMLParameterModel(double m, double ma, double sMax, double kMax, double aMax)
 	: mM(m), mMa(ma), msMax(sMax), mkMax(kMax), maMax(aMax) {};

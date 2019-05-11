@@ -25,6 +25,10 @@ struct VacuumPolarization{
 	constexpr scalar_type Px() const {return 0;};
 	constexpr scalar_type Py() const {return 0;};
 	constexpr scalar_type Pz() const {return 0;};
+
+	constexpr scalar_type Jx() const {return 0;};
+	constexpr scalar_type Jy() const {return 0;};
+	constexpr scalar_type Jz() const {return 0;};
 };
 
 template <typename scalar_type = double>
@@ -33,6 +37,10 @@ struct VacuumMagnetization{
 	constexpr scalar_type Mx() const {return 0;};
 	constexpr scalar_type My() const {return 0;};
 	constexpr scalar_type Mz() const {return 0;};
+
+	constexpr scalar_type Kx() const {return 0;};
+	constexpr scalar_type Ky() const {return 0;};
+	constexpr scalar_type Kz() const {return 0;};
 };
 
 
@@ -333,8 +341,8 @@ public:
 
 namespace constant{
 	struct ConstantUpdate{
-		template <typename T>
-		static void explicit_update(T&& D, T&& E, T&& P, T&& J,
+		template <typename T, typename PJType>
+		static void explicit_update(T&& D, T&& E, PJType && P, PJType && J,
 								   const double & eps_rel,
 								   double eps_0){
 			D = eps_rel*eps_0*E;
@@ -343,13 +351,11 @@ namespace constant{
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
-		template <typename T>
-		static void implicit_update(T&& D, T&& E, T&& P, T&& J,
+		template <typename T, typename PJType>
+		static void implicit_update(T&& D, T&& E, PJType && P, PJType && J,
 								   const double & eps_rel,
 								   double eps_0){
-
 			E = D/(eps_rel*eps_0);
-
 		}
 	};
 
@@ -516,6 +522,33 @@ namespace conductive{
 
 	//////////////// Verlet (2nd order) ////////////////////////
 
+		// template <typename T, typename dtType>
+		// static void implicit_update(T && D, T && E, T && P, T && J,
+		// 						   const double & eps_rel,
+		// 						   double eps_0, 
+		// 						   const double & cond_freq, 
+		// 						   dtType && dt){
+
+		// 	double factor = dt*cond_freq/(eps_rel*eps_0);
+
+		// 	// first update P to the level of D
+		// 	P += factor*D/(1.0+factor);
+		// 	// then update E to the level of D
+		// 	E = (D - P)/(eps_rel*eps_0);
+
+		// }
+
+
+
+
+		// P =  cond_freq/(j*w) * E
+		// dP/dt = cond_freq * E = cond_freq / eps0 * (D-P)
+		//
+		// P_n+1 - P_n = dt * cond_freq / eps0 * (D_n+1 - P_n+1)
+		//
+		// P_n+1(1+dt*cond_freq / eps0)= P_n + dt*cond_freq/eps0*D_n+1
+	//////////////// Implicit (1st order) ////////////////////////
+
 		template <typename T, typename dtType>
 		static void implicit_update(T && D, T && E, T && P, T && J,
 								   const double & eps_rel,
@@ -526,10 +559,10 @@ namespace conductive{
 			double factor = dt*cond_freq/(eps_rel*eps_0);
 
 			// first update P to the level of D
-			P += factor*D/(1.0+factor);
+			P = (P + factor*D)/(1.0+factor);
+
 			// then update E to the level of D
 			E = (D - P)/(eps_rel*eps_0);
-
 		}
 
 	};

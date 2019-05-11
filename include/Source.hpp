@@ -269,6 +269,356 @@ SoftSource<SignalType, CellType, GetField<F>> make_soft_source(SignalType f, Cel
 //************************************************************
 
 
+#include "PML.hpp"
+#include "YeeFields.hpp"
+#include "YeeCell.hpp"
+#include "YeeUpdates.hpp"
+#include "DispersiveMaterials.hpp"
+#include "DefaultInterfaces.hpp"
+
+// TFSF Source
+struct Aux1D{
+private:
+	typedef TEM							mode;
+	typedef double 						scalar_type;
+	typedef NewPML<mode, scalar_type> 	pml_type;
+	typedef YeeFields<mode, scalar_type, std::array> 	field_type;
+	typedef YeeCell<field_type, 
+					VacuumPolarization<scalar_type>, 
+					VacuumMagnetization<scalar_type>,
+					pml_type
+					>					yee_type;
+
+	// make a neighbor type;
+	template <typename T>
+	struct Stencil1D : public T{
+		typedef Stencil1D<T>		NeighborType;
+		typedef NeighborType		GhostType;
+
+		// ValueT										center;
+		NeighborType * 		neighbMin;
+		NeighborType * 		neighbMax;
+
+		std::shared_ptr<GhostType> 		ghostMin;
+		std::shared_ptr<GhostType>		ghostMax;
+	public:
+		Stencil1D() : T() {
+			neighbMin = nullptr;
+			neighbMax = nullptr;
+		};
+
+		// Stencil1D(const NeighborType & o) = default;
+
+		Stencil1D(const T & c) : T(c){};
+
+		Stencil1D & operator=(T & c){
+			Stencil1D s(c);
+			// std::swap(s.neighbMin, neighbMin);
+			// std::swap(s.neighbMax, neighbMax);
+			std::swap(static_cast<T &>(*this), static_cast<T &>(s));
+			return *this;
+		}
+
+		// runtime set and get
+		constexpr NeighborType & getNeighborMin(std::size_t d) const{
+			return *neighbMin;
+		};
+		constexpr NeighborType & getNeighborMax(std::size_t d) const{
+			return *neighbMax;
+		};
+		void setNeighborMin(NeighborType & val, std::size_t d){
+			neighbMin = &val;
+		};
+		void setNeighborMax(NeighborType & val, std::size_t d){
+			neighbMax = &val;
+		};
+
+
+		// runtime add ghost cells
+		void addGhostMin(std::size_t d){
+			ghostMin = std::make_unique<GhostType>();
+			ghostMin->setNeighborMax(*this,d);
+			setNeighborMin(*ghostMin,d);
+		};
+		void addGhostMax(std::size_t d){
+			ghostMax = std::make_unique<GhostType>();
+			ghostMax->setNeighborMin(*this,d);
+			setNeighborMax(*ghostMax,d);
+		};
+	};
+
+
+	typedef std::vector<Stencil1D<yee_type>> 		cell_container_type;
+	typedef std::function<double(double)>			signal_type;
+
+	cell_container_type 		mCells;
+	static constexpr std::size_t 		mNPML = 15;
+	double 						mT; // current time
+	double 						mDx;
+	signal_type 				mSignal;
+
+public:
+	template <typename Signal>
+	Aux1D(std::size_t ncells, double dx, double dt, Signal sig) : mDx(dx), mT(0) {
+		mCells.resize(ncells + 2*mNPML + 20);
+
+		// connect neighbors
+		for (std::size_t i=1; i<mCells.size()-1; i++){
+			mCells[i].setNeighborMin(mCells[i-1], 0);
+			mCells[i].setNeighborMax(mCells[i+1], 0);
+		}
+		mCells[0].addGhostMin(0);
+		mCells[0].setNeighborMax(mCells[1], 0);
+		mCells[mCells.size()-1].addGhostMax(0);
+		mCells[mCells.size()-1].setNeighborMin(mCells[mCells.size()-2], 0);
+
+		// setup PML
+		PMLParameterModel p(dx);
+		for (auto i=1; i<mNPML+2; i++){
+			double x = static_cast<double>(mNPML-i+1)/static_cast<double>(mNPML);
+			double xm = x - 0.5/static_cast<double>(mNPML);
+			mCells[i].setPMLParameters<FieldType::Electric, Dir::X>(p.K(x), p.S(x), p.A(x), dt);
+			mCells[i].setPMLParameters<FieldType::Magnetic, Dir::X>(p.K(xm), p.S(xm), p.A(xm), dt);
+
+			mCells[mCells.size()-i].setPMLParameters<FieldType::Electric, Dir::X>(p.K(x), p.S(x), p.A(x), dt);
+			mCells[mCells.size()-1-i].setPMLParameters<FieldType::Magnetic, Dir::X>(p.K(xm), p.S(xm), p.A(xm), dt);
+		}
+
+		// setup source
+		mSignal = static_cast<signal_type>(sig);
+	}
+
+
+	// take a time-step
+	void time_step(double dt){
+		mT += dt;
+		// std::cout << "time-stepping aux sim D: " << std::endl;
+
+		// update D/E
+		std::for_each(mCells.begin(), mCells.end(), YeeUpdate<mode, Dz>(dt, mDx));
+		// std::cout << "time-stepping aux sim D PML: " << std::endl;
+		std::for_each(mCells.begin(), mCells.begin()+mNPML+2, UpdatePML<mode, FieldType::Electric, Dir::X>(dt, mDx));
+		std::for_each(mCells.end()-(mNPML+3), mCells.end(), UpdatePML<mode, FieldType::Electric, Dir::X>(dt, mDx));
+		// std::cout << "time-stepping aux sim D materials: " << std::endl;
+		std::for_each(mCells.begin(), mCells.end(), VacuumUpdate<mode, FieldType::Electric>());
+
+		// std::cout << "time-stepping aux sim D signal: " << std::endl;
+		// update the sources
+		mCells[mNPML + 5].Ez() += mSignal(mT);
+
+		// std::cout << "time-stepping aux sim B: " << std::endl;
+
+		// update B/H
+		std::for_each(mCells.begin(), mCells.end(), YeeUpdate<mode, By>(dt, mDx));
+		std::for_each(mCells.begin(), mCells.begin()+mNPML+2, UpdatePML<mode, FieldType::Magnetic, Dir::X>(dt, mDx));
+		std::for_each(mCells.end()-(mNPML+3), mCells.end(), UpdatePML<mode, FieldType::Magnetic, Dir::X>(dt, mDx));
+		std::for_each(mCells.begin(), mCells.end(), VacuumUpdate<mode, FieldType::Magnetic>());
+
+	}
+
+
+	// interpolation of field values 
+	// interpolate the E value to location "loc"
+	// where loc is measured from the center of the 1D
+	// domain, towards the direction of the wavevector
+	double interpolateE(double loc){
+		double nd = static_cast<double>(mCells.size())/2.0 + loc/mDx;
+		std::size_t n = nd; // truncate to integer
+
+		double frac = (nd - n)/mDx;
+
+		return (1.0-frac)*mCells[n].Ez() + frac*mCells[n+1].Ez();
+	}
+
+	double interpolateH(double loc){
+		double nd = static_cast<double>(mCells.size())/2.0 + loc/mDx - 0.5;
+		std::size_t n = nd; // truncate to integer
+
+		double frac = (nd - n)/mDx;
+
+		return (1.0-frac)*mCells[n].Hy() + frac*mCells[n+1].Hy();
+	}
+
+
+
+};
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+template <typename Mode,
+		  typename LocationFunctor,
+		  typename IteratorType,
+		  class TimePolicy 			= BD1, 
+		  class PMLCoeffPolicy 		= GetPML>
+struct TFSFPlane{
+private:	
+	static constexpr std::size_t 			ndim = Mode::dim;
+	typedef std::array<double, ndim> 		PointType;
+
+	PointType 								mWaveVector, mNormal;
+	std::shared_ptr<Aux1D> 					mAuxSim;
+	std::array<double, 3>					mPolarization, mPolarizationH;
+	LocationFunctor 						mLocFunctor;
+	IteratorType							mBegin, mEnd;
+
+	template <typename EMField>
+	struct field_update{
+	private:
+		static constexpr Dir 			I = FieldDir<EMField>::value;
+		static constexpr FieldType 		FT = EMField::field_type;
+		typedef GetField<EMField> 		FP;
+
+		template <Dir d>
+		struct dir_update{
+			static constexpr Dir 			J = d;
+			static constexpr Dir 			K = MutuallyOrthogonal<I,J>::value;
+			static constexpr FieldType 		CurlType =  yu_details::CurlType<FT>::value;
+			typedef typename FieldComponent<CurlType, K>::type 	CurlField;
+			typedef std::conditional_t<CurlType == FieldType::Electric,
+									   typename FieldComponents<Mode>::electric,
+									   typename FieldComponents<Mode>::magnetic> 	tuple_type;
+
+			template <typename YeeCell>
+			static constexpr std::enable_if_t<Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
+			get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+				// std::cout << "Levi-civita: " << LeviCivita<I, J, K>::value << std::endl;
+				// std::cout << "PML: " << GetPML::F<FT,J>(f) << std::endl;
+				// std::cout << "Normal: " << normal[static_cast<int>(J)] << std::endl;
+				// std::cout << "srcval: " << srcval << std::endl;
+				// std::cout << "polarization: " << pol[static_cast<int>(K)] << std::endl;
+				// std::cout << "return value: " <<  LeviCivita<I, J, K>::value*GetPML::F<FT, J>(f)/(dx)* normal[static_cast<int>(J)] * srcval * pol[static_cast<int>(K)] << std::endl;
+				return LeviCivita<I, J, K>::value*GetPML::F<FT, J>(f)/(dx)* normal[static_cast<int>(J)] * srcval * pol[static_cast<int>(K)];
+			}
+
+			template <typename YeeCell>
+			static constexpr std::enable_if_t<!Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
+			get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+				return 0.0;
+			}
+		};
+	public:
+		template <typename YeeCell>
+		static void get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+			static constexpr Dir d1 = (I == Dir::X ? Dir::Y : (I == Dir::Y ? Dir::Z : Dir::X));
+			static constexpr Dir d2 = MutuallyOrthogonal<I, d1>::value;
+
+			GetField<EMField>::get(f) +=  yu_details::Coeff<FT>::value*TimePolicy::curl_coeff*dt*
+										  (dir_update<d1>::get(f, dt, dx, normal, pol, srcval) + 
+										  	dir_update<d2>::get(f, dt, dx, normal, pol, srcval));
+		}
+	};
+public:
+	TFSFPlane(PointType wavevec, PointType normal, LocationFunctor lf, 
+			  IteratorType beg, IteratorType end, std::shared_ptr<Aux1D> auxsim)
+	: mWaveVector(wavevec), mNormal(normal), mLocFunctor(lf), mBegin(beg), mEnd(end), mAuxSim(auxsim)
+	{
+		// make sure normal is unit size
+		double N = 0;
+		for (auto d=0; d<ndim; d++) N += mNormal[d]*mNormal[d];
+		N = std::sqrt(N);
+		for (auto d=0; d<ndim; d++) mNormal[d] /= N;
+
+		// normalize the wavevector direction
+		double K = 0;
+		for (auto d=0; d<ndim; d++) K += mWaveVector[d]*mWaveVector[d];
+		K = std::sqrt(K);
+		for (auto d=0; d<ndim; d++) mWaveVector[d] /= K;
+
+		// set default polarization
+		if (std::is_same<Mode, TE>::value){
+			mPolarizationH = {0,0,1};
+			mPolarization = {mWaveVector[1], -mWaveVector[0], 0};
+		}
+		else if (std::is_same<Mode, TM>::value){
+			mPolarization = {0,0,1};
+			mPolarizationH = {mWaveVector[1], -mWaveVector[0], 0};
+		}
+		else if (std::is_same<Mode, TEM>::value){
+			mPolarization = {0,0,1};
+			mPolarizationH = {0,1,0};
+		}
+
+		// std::cout << "Normal: " << mNormal[0] << ", " << mNormal[1] << std::endl;
+		// std::cout << "WaveVector: " << mWaveVector[0] << ", " << mWaveVector[1] << std::endl;
+
+		// std::cout << "Polarization: " << mPolarization[0] << ", " << mPolarization[1] << ", " << mPolarization[2] << std::endl;
+		// std::cout << "PolarizationH: " << mPolarizationH[0] << ", " << mPolarizationH[1] << ", " << mPolarizationH[2] << std::endl;
+		
+	}
+
+
+	void updateD(double dt, double dx){
+		std::cout << "update D: " << std::endl;
+		for (auto it=mBegin; it!=mEnd; it++){
+			// get the location of the current iterator
+			PointType pt = mLocFunctor(it);
+
+			// std::cout << "point location: " << pt[0] << ", " << pt[1] << std::endl;
+
+			// get the projection of this vector on the wavevector
+			double proj = 0;
+			for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
+
+			// std::cout << "projection: " << proj << std::endl;
+
+			// get the source value at the iterator location
+			double src = mAuxSim->interpolateH(proj);
+
+			// update for each component that needs updating
+			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::electric_flux>(*it, dt, dx, mNormal, mPolarizationH, src);
+		}
+
+		// throw -1;
+		mAuxSim->time_step(dt);
+	}
+
+	void updateB(double dt, double dx){
+		for (auto it=mBegin; it!=mEnd; it++){
+			// get the location of the current iterator
+			PointType pt = mLocFunctor(it);
+
+			// get the projection of this vector on the wavevector
+			double proj = 0;
+			for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
+
+			// get the source value at the iterator location
+			double src = mAuxSim->interpolateE(proj);
+
+			// update for each component that needs updating
+			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::magnetic_flux>(*it, dt, dx, mNormal, mPolarization, src);
+		}
+	}
+
+};
+
+
+template <typename Mode, Dir dd, Orientation o, typename LocFunctor, typename Iterator>
+TFSFPlane<Mode, LocFunctor, Iterator> make_tfsf_plane(Iterator && begin, Iterator && end, 
+													  LocFunctor lf, std::array<double, Mode::dim> K,
+													  std::shared_ptr<Aux1D> sim){
+	// construct the normal
+	std::array<double, Mode::dim> normal;
+	for (auto d=0; d<Mode::dim; d++) normal[d] = 0;
+	normal[static_cast<int>(dd)] = (o == Orientation::MAX ? 1 : -1);
+
+	return TFSFPlane<Mode, LocFunctor, Iterator>(K, normal, lf, begin, end, sim);
+}
+
+
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+//************************************************************
+
+
 // A source of this type has :
 //		- a defined functor void(double) which retrieves the
 // 			value of the source, given the time

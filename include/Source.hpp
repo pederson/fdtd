@@ -425,7 +425,7 @@ public:
 		double nd = static_cast<double>(mCells.size())/2.0 + loc/mDx;
 		std::size_t n = nd; // truncate to integer
 
-		double frac = (nd - n)/mDx;
+		double frac = (nd - n);
 
 		return (1.0-frac)*mCells[n].Ez() + frac*mCells[n+1].Ez();
 	}
@@ -434,7 +434,7 @@ public:
 		double nd = static_cast<double>(mCells.size())/2.0 + loc/mDx - 0.5;
 		std::size_t n = nd; // truncate to integer
 
-		double frac = (nd - n)/mDx;
+		double frac = (nd - n);
 
 		return (1.0-frac)*mCells[n].Hy() + frac*mCells[n+1].Hy();
 	}
@@ -486,7 +486,22 @@ private:
 
 			template <typename YeeCell>
 			static constexpr std::enable_if_t<Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
-			get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+			get(YeeCell && f, double dt, double dx, 
+				PointType & normal, PointType & wavevec, std::array<double, 3> & pol, 
+				PointType & cell_center, Aux1D & sim){
+
+
+				PointType src_loc = cell_center;
+				// apply the field offset
+				for (auto dd=0; dd<ndim; dd++) src_loc[dd] += CurlField::off[dd]*dx;
+
+				// get projection
+				double proj = 0;
+				for (auto dd=0; dd<ndim; dd++) proj += wavevec[dd]*src_loc[dd];
+
+				// get the source value at the field location
+				double srcval = (CurlType == FieldType::Electric ? sim.interpolateE(proj) : sim.interpolateH(proj));
+
 				// std::cout << "Levi-civita: " << LeviCivita<I, J, K>::value << std::endl;
 				// std::cout << "PML: " << GetPML::F<FT,J>(f) << std::endl;
 				// std::cout << "Normal: " << normal[static_cast<int>(J)] << std::endl;
@@ -498,19 +513,24 @@ private:
 
 			template <typename YeeCell>
 			static constexpr std::enable_if_t<!Detail::tuple_contains_type<CurlField, tuple_type>::value, std::remove_reference_t<decltype(FP::get(std::declval<YeeCell>()))>>
-			get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+			get(YeeCell && f, double dt, double dx, 
+				PointType & normal, PointType & wavevec, std::array<double, 3> & pol, 
+				PointType & cell_center, Aux1D & sim){
 				return 0.0;
 			}
 		};
 	public:
 		template <typename YeeCell>
-		static void get(YeeCell && f, double dt, double dx, PointType & normal, std::array<double, 3> & pol, double srcval){
+		static void get(YeeCell && f, double dt, double dx, 
+						PointType & normal, PointType & wavevec, std::array<double, 3> & pol, 
+						PointType & cell_center, Aux1D & sim){
 			static constexpr Dir d1 = (I == Dir::X ? Dir::Y : (I == Dir::Y ? Dir::Z : Dir::X));
 			static constexpr Dir d2 = MutuallyOrthogonal<I, d1>::value;
 
+
 			GetField<EMField>::get(f) +=  yu_details::Coeff<FT>::value*TimePolicy::curl_coeff*dt*
-										  (dir_update<d1>::get(f, dt, dx, normal, pol, srcval) + 
-										  	dir_update<d2>::get(f, dt, dx, normal, pol, srcval));
+										  (dir_update<d1>::get(f, dt, dx, normal, wavevec, pol, cell_center, sim) + 
+										  	dir_update<d2>::get(f, dt, dx, normal, wavevec, pol, cell_center, sim));
 		}
 	};
 public:
@@ -554,24 +574,24 @@ public:
 
 
 	void updateD(double dt, double dx){
-		std::cout << "update D: " << std::endl;
+		// std::cout << "update D: " << std::endl;
 		for (auto it=mBegin; it!=mEnd; it++){
 			// get the location of the current iterator
 			PointType pt = mLocFunctor(it);
 
 			// std::cout << "point location: " << pt[0] << ", " << pt[1] << std::endl;
 
-			// get the projection of this vector on the wavevector
-			double proj = 0;
-			for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
+			// // get the projection of this vector on the wavevector
+			// double proj = 0;
+			// for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
 
-			// std::cout << "projection: " << proj << std::endl;
+			// // std::cout << "projection: " << proj << std::endl;
 
-			// get the source value at the iterator location
-			double src = mAuxSim->interpolateH(proj);
+			// // get the source value at the iterator location
+			// double src = mAuxSim->interpolateH(proj);
 
 			// update for each component that needs updating
-			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::electric_flux>(*it, dt, dx, mNormal, mPolarizationH, src);
+			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::electric_flux>(*it, dt, dx, mNormal, mWaveVector, mPolarizationH, pt, *mAuxSim);
 		}
 
 		// throw -1;
@@ -583,15 +603,15 @@ public:
 			// get the location of the current iterator
 			PointType pt = mLocFunctor(it);
 
-			// get the projection of this vector on the wavevector
-			double proj = 0;
-			for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
+			// // get the projection of this vector on the wavevector
+			// double proj = 0;
+			// for (auto d=0; d<ndim; d++) proj += mWaveVector[d]*pt[d];
 
-			// get the source value at the iterator location
-			double src = mAuxSim->interpolateE(proj);
+			// // get the source value at the iterator location
+			// double src = mAuxSim->interpolateE(proj);
 
 			// update for each component that needs updating
-			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::magnetic_flux>(*it, dt, dx, mNormal, mPolarization, src);
+			nested_for_each_tuple_type<field_update, typename FieldComponents<Mode>::magnetic_flux>(*it, dt, dx, mNormal, mWaveVector, mPolarization, pt, *mAuxSim);
 		}
 	}
 
